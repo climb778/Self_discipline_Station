@@ -1,0 +1,74 @@
+{
+  "pages": [
+    {
+      "path": "pages/checkin/checkin",
+      "style": {
+        "navigationBarTitleText": "岁月打卡",
+        "navigationBarBackgroundColor": "#0b4aa2",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/todo/todo",
+      "style": {
+        "navigationBarTitleText": "每日待办",
+        "navigationBarBackgroundColor": "#0b4aa2",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/records/records",
+      "style": {
+        "navigationBarTitleText": "过往记录",
+        "navigationBarBackgroundColor": "#0b4aa2",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/profile/profile",
+      "style": {
+        "navigationBarTitleText": "我的主页",
+        "navigationBarBackgroundColor": "#0b4aa2",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/task-form/task-form",
+      "style": {
+        "navigationBarTitleText": "新增任务",
+        "navigationBarBackgroundColor": "#0b4aa2",
+        "navigationBarTextStyle": "white"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "自律小站",
+    "navigationBarBackgroundColor": "#0b4aa2",
+    "backgroundColor": "#f5f8fc"
+  },
+  "tabBar": {
+    "color": "#8b98aa",
+    "selectedColor": "#0b4aa2",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/checkin/checkin",
+        "text": "岁月打卡"
+      },
+      {
+        "pagePath": "pages/todo/todo",
+        "text": "每日待办"
+      },
+      {
+        "pagePath": "pages/records/records",
+        "text": "过往记录"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的主页"
+      }
+    ]
+  }
+}
