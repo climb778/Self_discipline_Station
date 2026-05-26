@@ -39,6 +39,30 @@
         "navigationBarBackgroundColor": "#0b4aa2",
         "navigationBarTextStyle": "white"
       }
+    },
+    {
+      "path": "pages/task-detail/task-detail",
+      "style": {
+        "navigationBarTitleText": "任务详情",
+        "navigationBarBackgroundColor": "#0b4aa2",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/settings/settings",
+      "style": {
+        "navigationBarTitleText": "设置",
+        "navigationBarBackgroundColor": "#0b4aa2",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/focus/focus",
+      "style": {
+        "navigationBarTitleText": "专注模式",
+        "navigationBarBackgroundColor": "#0b4aa2",
+        "navigationBarTextStyle": "white"
+      }
     }
   ],
   "globalStyle": {

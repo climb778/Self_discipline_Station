@@ -27,7 +27,7 @@ defineProps({
 
 .value {
   display: block;
-  color: #0b4aa2;
+  color: var(--theme-primary, #0b4aa2);
   font-size: 42rpx;
   font-weight: 800;
   line-height: 1.1;

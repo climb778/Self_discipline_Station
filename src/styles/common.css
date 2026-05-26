@@ -1,8 +1,26 @@
 .page-shell {
+  --theme-primary: #0b4aa2;
+  --theme-secondary: #2674d9;
+  --theme-soft: #eaf3ff;
+  --theme-shadow: rgba(11, 74, 162, 0.22);
   min-height: 100vh;
   box-sizing: border-box;
   padding: 24rpx 28rpx 150rpx;
   background: #f5f8fc;
+}
+
+.page-shell.theme-forest {
+  --theme-primary: #197a55;
+  --theme-secondary: #35a77a;
+  --theme-soft: #e9f8f1;
+  --theme-shadow: rgba(25, 122, 85, 0.22);
+}
+
+.page-shell.theme-orange {
+  --theme-primary: #d96b16;
+  --theme-secondary: #f09a3e;
+  --theme-soft: #fff3e7;
+  --theme-shadow: rgba(217, 107, 22, 0.22);
 }
 
 .hero-card {
@@ -11,8 +29,8 @@
   padding: 34rpx;
   border-radius: 32rpx;
   color: #fff;
-  background: linear-gradient(135deg, #0b4aa2 0%, #2674d9 100%);
-  box-shadow: 0 22rpx 48rpx rgba(11, 74, 162, 0.2);
+  background: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-secondary) 100%);
+  box-shadow: 0 22rpx 48rpx var(--theme-shadow);
 }
 
 .card {
@@ -41,8 +59,8 @@
   font-size: 32rpx;
   font-weight: 700;
   line-height: 96rpx;
-  background: #0b4aa2;
-  box-shadow: 0 14rpx 34rpx rgba(11, 74, 162, 0.22);
+  background: var(--theme-primary);
+  box-shadow: 0 14rpx 34rpx var(--theme-shadow);
 }
 
 .fab {
@@ -57,8 +75,8 @@
   text-align: center;
   font-size: 60rpx;
   line-height: 106rpx;
-  background: #0b4aa2;
-  box-shadow: 0 20rpx 44rpx rgba(11, 74, 162, 0.3);
+  background: var(--theme-primary);
+  box-shadow: 0 20rpx 44rpx var(--theme-shadow);
 }
 
 .tag {
@@ -67,6 +85,6 @@
   padding: 8rpx 18rpx;
   border-radius: 999rpx;
   font-size: 22rpx;
-  color: #0b4aa2;
-  background: #eaf3ff;
+  color: var(--theme-primary);
+  background: var(--theme-soft);
 }

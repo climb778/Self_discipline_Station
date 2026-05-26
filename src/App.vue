@@ -1,7 +1,14 @@
 <script>
+import { applyThemeChrome, generateRepeatTasks } from './utils/storage'
+
 export default {
   onLaunch() {
-    console.log('自律小站启动')
+    generateRepeatTasks()
+    applyThemeChrome()
+  },
+  onShow() {
+    generateRepeatTasks()
+    applyThemeChrome()
   }
 }
 </script>

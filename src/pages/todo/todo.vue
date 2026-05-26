@@ -1,5 +1,5 @@
 <template>
-  <view class="page-shell">
+  <view class="page-shell" :class="themeClass">
     <view class="hero-card todo-hero">
       <view>
         <text class="hello">{{ greeting }}</text>
@@ -8,6 +8,29 @@
       <view class="date-badge">
         <text class="day">{{ day }}</text>
         <text class="month">{{ month }}月</text>
+      </view>
+    </view>
+
+    <view v-if="showReminder" class="reminder-card card">
+      <view class="reminder-header">
+        <text class="reminder-icon">🔔</text>
+        <text class="reminder-title">今日提醒</text>
+      </view>
+      <view class="reminder-stats">
+        <view class="reminder-item">
+          <text class="reminder-num" :class="{ warn: uncompletedCount > 0 }">{{ uncompletedCount }}</text>
+          <text class="reminder-label">未完成</text>
+        </view>
+        <view class="reminder-divider"></view>
+        <view class="reminder-item">
+          <text class="reminder-num" :class="{ danger: overdueCount > 0 }">{{ overdueCount }}</text>
+          <text class="reminder-label">已过期</text>
+        </view>
+        <view class="reminder-divider"></view>
+        <view class="reminder-item">
+          <text class="reminder-num next">{{ nextReminderText }}</text>
+          <text class="reminder-label">最近提醒</text>
+        </view>
       </view>
     </view>
 
@@ -28,7 +51,12 @@
     </view>
 
     <text class="section-title">今日任务</text>
-    <TaskItem v-for="task in todayTasks" :key="task.id" :task="task" @toggle="handleToggle" />
+    <view v-for="task in todayTasks" :key="task.id" class="task-row">
+      <TaskItem :task="task" @toggle="handleToggle" @open="goDetail" />
+      <view v-if="!task.isCompleted" class="focus-entry" @tap.stop="goFocus(task.id)">
+        <text>专注</text>
+      </view>
+    </view>
     <EmptyState v-if="!todayTasks.length" title="今日很清爽" text="添加一个小目标，给今天一个明确方向" />
 
     <view class="fab" @tap="goAdd">+</view>
@@ -42,10 +70,12 @@ import TaskItem from '../../components/TaskItem.vue'
 import StatCard from '../../components/StatCard.vue'
 import EmptyState from '../../components/EmptyState.vue'
 import { getDisplayDate, getToday } from '../../utils/date'
-import { getTasks, toggleTask } from '../../utils/storage'
-import { getRate, getTodayTasks } from '../../utils/tasks'
+import { generateRepeatTasks, getSettings, getTasks, getThemeClass, toggleTask } from '../../utils/storage'
+import { getRate, getReminderInfo, getTodayTasks, getOverdueTasks } from '../../utils/tasks'
 
 const tasks = ref([])
+const themeClass = ref(getThemeClass())
+const settings = ref(getSettings())
 
 const now = new Date()
 const day = String(now.getDate()).padStart(2, '0')
@@ -63,7 +93,29 @@ const completedCount = computed(() => todayTasks.value.filter(task => task.isCom
 const todoCount = computed(() => todayTasks.value.length - completedCount.value)
 const todayRate = computed(() => getRate(completedCount.value, todayTasks.value.length))
 
+const uncompletedCount = computed(() => todoCount.value)
+const overdueCount = computed(() => getOverdueTasks(tasks.value).length)
+
+const nextReminderText = computed(() => {
+  const reminderTasks = todayTasks.value.filter(t => t.enableReminder && t.reminderTime && !t.isCompleted)
+  if (!reminderTasks.length) return '无'
+  const infos = reminderTasks
+    .map(t => getReminderInfo(t))
+    .filter(Boolean)
+    .filter(info => !info.passed)
+    .sort((a, b) => a.time.localeCompare(b.time))
+  if (!infos.length) return '已过'
+  return infos[0].text
+})
+
+const showReminder = computed(() => {
+  return settings.value.enableReminder && (uncompletedCount.value > 0 || overdueCount.value > 0 || nextReminderText.value !== '无')
+})
+
 function loadTasks() {
+  generateRepeatTasks()
+  themeClass.value = getThemeClass()
+  settings.value = getSettings()
   tasks.value = getTasks()
 }
 
@@ -71,9 +123,21 @@ function handleToggle(id) {
   tasks.value = toggleTask(id)
 }
 
+function goDetail(id) {
+  uni.navigateTo({
+    url: `/pages/task-detail/task-detail?id=${id}`
+  })
+}
+
 function goAdd() {
   uni.navigateTo({
     url: '/pages/task-form/task-form'
+  })
+}
+
+function goFocus(taskId) {
+  uni.navigateTo({
+    url: `/pages/focus/focus?taskId=${taskId}`
   })
 }
 
@@ -124,6 +188,69 @@ onShow(loadTasks)
   font-size: 24rpx;
 }
 
+.reminder-card {
+  margin-top: 24rpx;
+}
+
+.reminder-header {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 20rpx;
+}
+
+.reminder-icon {
+  font-size: 32rpx;
+}
+
+.reminder-title {
+  color: #172033;
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.reminder-stats {
+  display: flex;
+  align-items: center;
+}
+
+.reminder-item {
+  flex: 1;
+  text-align: center;
+}
+
+.reminder-divider {
+  width: 1rpx;
+  height: 56rpx;
+  background: #edf2f8;
+}
+
+.reminder-num {
+  display: block;
+  color: var(--theme-primary);
+  font-size: 36rpx;
+  font-weight: 800;
+}
+
+.reminder-num.warn {
+  color: #d99616;
+}
+
+.reminder-num.danger {
+  color: #e84f4f;
+}
+
+.reminder-num.next {
+  font-size: 28rpx;
+}
+
+.reminder-label {
+  display: block;
+  margin-top: 8rpx;
+  color: #8491a5;
+  font-size: 23rpx;
+}
+
 .rate-card {
   margin-top: 24rpx;
 }
@@ -140,7 +267,7 @@ onShow(loadTasks)
 
 .rate-value {
   margin-top: 8rpx;
-  color: #0b4aa2;
+  color: var(--theme-primary);
   font-size: 54rpx;
   font-weight: 800;
 }
@@ -156,7 +283,7 @@ onShow(loadTasks)
 .progress-inner {
   height: 100%;
   border-radius: 18rpx;
-  background: linear-gradient(90deg, #0b4aa2, #37a2ff);
+  background: linear-gradient(90deg, var(--theme-primary), var(--theme-secondary));
 }
 
 .stats-grid {
@@ -164,5 +291,22 @@ onShow(loadTasks)
   grid-template-columns: repeat(3, 1fr);
   gap: 18rpx;
   margin-top: 22rpx;
+}
+
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.focus-entry {
+  flex: 0 0 auto;
+  padding: 14rpx 22rpx;
+  border-radius: 20rpx;
+  color: var(--theme-primary);
+  font-size: 24rpx;
+  font-weight: 700;
+  background: var(--theme-soft);
+  margin-bottom: 20rpx;
 }
 </style>

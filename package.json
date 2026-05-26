@@ -1,6 +1,6 @@
 {
   "name": "self-discipline-station",
-  "version": "1.0.0",
+  "version": "1.4.0",
   "private": true,
   "scripts": {
     "dev:h5": "uni -p h5",

@@ -1,10 +1,12 @@
 <template>
-  <view class="page-shell">
+  <view class="page-shell" :class="themeClass">
     <view class="hero-card user-card">
-      <view class="avatar">自</view>
+      <view class="settings-entry" @tap="goSettings">设置</view>
+      <image v-if="user.avatar" class="avatar-img" :src="user.avatar" mode="aspectFill" />
+      <view v-else class="avatar">{{ avatarText }}</view>
       <view class="user-info">
-        <text class="name">自律行动家</text>
-        <text class="sign">每天进步一点点，时间会给答案</text>
+        <text class="name">{{ user.nickname }}</text>
+        <text class="sign">{{ user.signature }}</text>
         <view class="user-meta">
           <text>Lv.{{ level }}</text>
           <text>总完成率 {{ totalRate }}%</text>
@@ -12,12 +14,55 @@
       </view>
     </view>
 
+    <text class="section-title">最近 7 天完成趋势</text>
+    <view class="trend-card card">
+      <view class="trend-bars">
+        <view v-for="item in trend" :key="item.date" class="trend-col">
+          <view class="trend-bar-wrap">
+            <view class="trend-bar" :style="{ height: barHeight(item.count) }"></view>
+          </view>
+          <text class="trend-count">{{ item.count || '' }}</text>
+          <text class="trend-label">{{ item.label }}</text>
+        </view>
+      </view>
+    </view>
+
     <text class="section-title">行动仪表盘</text>
     <view class="dashboard">
       <StatCard label="总体完成率" :value="`${totalRate}%`" />
-      <StatCard label="累计任务" :value="tasks.length" />
+      <StatCard label="累计任务" :value="activeTasks.length" />
       <StatCard label="连续打卡" :value="`${continuousDays}天`" />
       <StatCard label="已完成" :value="completedCount" />
+    </view>
+
+    <view class="dashboard extra-stats">
+      <StatCard label="本周完成" :value="weeklyCount" />
+      <StatCard label="本月完成" :value="monthlyCount" />
+      <StatCard label="最长连续" :value="`${longestStreak}天`" />
+      <StatCard label="最常用分类" :value="mostCategory" />
+    </view>
+
+    <text class="section-title">我的成就</text>
+    <view class="achievement-grid">
+      <view
+        v-for="item in achievements"
+        :key="item.id"
+        class="achievement-card card"
+        :class="{ unlocked: item.unlocked }"
+        @tap="showAchievement(item)"
+      >
+        <text class="achievement-icon">{{ item.unlocked ? '★' : '☆' }}</text>
+        <text class="achievement-name">{{ item.name }}</text>
+        <text class="achievement-progress">{{ Math.min(item.progress, item.target) }}/{{ item.target }}</text>
+      </view>
+    </view>
+
+    <text class="section-title">专注统计</text>
+    <view class="dashboard">
+      <StatCard label="今日专注" :value="`${todayFocusMinutes}分`" />
+      <StatCard label="本周专注" :value="`${weekFocusMinutes}分`" />
+      <StatCard label="累计专注" :value="`${totalFocusMinutes}分`" />
+      <StatCard label="专注次数" :value="totalFocusCount" />
     </view>
 
     <text class="section-title">快捷入口</text>
@@ -29,6 +74,10 @@
       <view class="quick card" @tap="goTodo">
         <text class="quick-icon">✓</text>
         <text>今日待办</text>
+      </view>
+      <view class="quick card" @tap="goFocus">
+        <text class="quick-icon">⏱</text>
+        <text>开始专注</text>
       </view>
       <view class="quick card" @tap="goRecords">
         <text class="quick-icon">⌕</text>
@@ -55,27 +104,92 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import StatCard from '../../components/StatCard.vue'
-import { getTasks } from '../../utils/storage'
-import { getCategorySummary, getContinuousCheckin, getOverdueTasks, getRate } from '../../utils/tasks'
+import { getAchievements } from '../../utils/achievements'
+import { applyThemeChrome, generateRepeatTasks, getSettings, getTasks, getThemeClass, getUser } from '../../utils/storage'
+import { getFocusRecords, getTodayFocusMinutes, getWeekFocusMinutes, getTotalFocusStats } from '../../utils/focus'
+import {
+  getActiveTasks,
+  getCategorySummary,
+  getContinuousCheckin,
+  getOverdueTasks,
+  getRate,
+  get7DayTrend,
+  getWeeklyCompletedCount,
+  getMonthlyCompletedCount,
+  getLongestStreak,
+  getMostUsedCategory
+} from '../../utils/tasks'
 
 const tasks = ref([])
+const focusRecords = ref([])
+const themeClass = ref(getThemeClass())
+const user = reactive(getUser())
 
-const completedCount = computed(() => tasks.value.filter(task => task.isCompleted).length)
-const todoCount = computed(() => tasks.value.length - completedCount.value)
+const activeTasks = computed(() => getActiveTasks(tasks.value))
+const completedCount = computed(() => activeTasks.value.filter(task => task.isCompleted).length)
+const todoCount = computed(() => activeTasks.value.length - completedCount.value)
 const overdueCount = computed(() => getOverdueTasks(tasks.value).length)
-const totalRate = computed(() => getRate(completedCount.value, tasks.value.length))
+const totalRate = computed(() => getRate(completedCount.value, activeTasks.value.length))
 const continuousDays = computed(() => getContinuousCheckin(tasks.value))
 const level = computed(() => Math.max(1, Math.floor(completedCount.value / 5) + 1))
+const avatarText = computed(() => (user.nickname || '自').slice(0, 1))
 const categoryText = computed(() => {
   const summary = getCategorySummary(tasks.value)
   return summary.length ? summary.map(item => item.category).join('、') : '暂无'
 })
 
-function loadTasks() {
+const trend = computed(() => get7DayTrend(tasks.value))
+const weeklyCount = computed(() => getWeeklyCompletedCount(tasks.value))
+const monthlyCount = computed(() => getMonthlyCompletedCount(tasks.value))
+const longestStreak = computed(() => getLongestStreak(tasks.value))
+const mostCategory = computed(() => getMostUsedCategory(tasks.value))
+const achievements = computed(() => getAchievements(tasks.value))
+
+const todayFocusMinutes = computed(() => getTodayFocusMinutes(focusRecords.value))
+const weekFocusMinutes = computed(() => getWeekFocusMinutes(focusRecords.value))
+const totalFocusStats = computed(() => getTotalFocusStats(focusRecords.value))
+const totalFocusMinutes = computed(() => totalFocusStats.value.totalMinutes)
+const totalFocusCount = computed(() => totalFocusStats.value.totalCount)
+
+const maxTrendCount = computed(() => Math.max(...trend.value.map(item => item.count), 1))
+
+function barHeight(count) {
+  if (!count) return '8rpx'
+  const percent = Math.round((count / maxTrendCount.value) * 100)
+  return `${Math.max(percent, 12)}%`
+}
+
+function loadData() {
+  generateRepeatTasks()
   tasks.value = getTasks()
+  focusRecords.value = getFocusRecords()
+  Object.assign(user, getUser())
+  themeClass.value = getThemeClass()
+  applyThemeChrome(getSettings().theme)
+}
+
+function showAchievement(item) {
+  const unlockedText = item.unlockedAt ? `\n解锁时间：${formatDateTime(item.unlockedAt)}` : ''
+  uni.showModal({
+    title: item.name,
+    content: `${item.condition}\n当前进度：${item.progress}/${item.target}${unlockedText}`,
+    showCancel: false
+  })
+}
+
+function formatDateTime(value) {
+  const date = new Date(value)
+  const pad = item => String(item).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function goSettings() {
+  uni.navigateTo({
+    url: '/pages/settings/settings'
+  })
 }
 
 function goAdd() {
@@ -96,7 +210,13 @@ function goRecords() {
   })
 }
 
-onShow(loadTasks)
+function goFocus() {
+  uni.navigateTo({
+    url: '/pages/focus/focus'
+  })
+}
+
+onShow(loadData)
 </script>
 
 <style scoped>
@@ -106,12 +226,27 @@ onShow(loadTasks)
   gap: 24rpx;
 }
 
-.avatar {
+.settings-entry {
+  position: absolute;
+  top: 24rpx;
+  right: 24rpx;
+  padding: 8rpx 18rpx;
+  border-radius: 999rpx;
+  color: #fff;
+  font-size: 24rpx;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.avatar,
+.avatar-img {
   flex: 0 0 auto;
   width: 116rpx;
   height: 116rpx;
   border: 4rpx solid rgba(255, 255, 255, 0.34);
   border-radius: 50%;
+}
+
+.avatar {
   text-align: center;
   font-size: 48rpx;
   font-weight: 800;
@@ -122,6 +257,7 @@ onShow(loadTasks)
 .user-info {
   flex: 1;
   min-width: 0;
+  padding-right: 84rpx;
 }
 
 .name,
@@ -158,15 +294,106 @@ onShow(loadTasks)
   background: rgba(255, 255, 255, 0.16);
 }
 
+.trend-card {
+  padding: 28rpx 16rpx 20rpx;
+}
+
+.trend-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+}
+
+.trend-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.trend-bar-wrap {
+  width: 40rpx;
+  height: 180rpx;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.trend-bar {
+  width: 100%;
+  min-height: 8rpx;
+  border-radius: 10rpx 10rpx 4rpx 4rpx;
+  background: linear-gradient(180deg, var(--theme-primary), var(--theme-secondary));
+  transition: height 0.3s ease;
+}
+
+.trend-count {
+  min-height: 30rpx;
+  margin-top: 10rpx;
+  color: var(--theme-primary);
+  font-size: 22rpx;
+  font-weight: 700;
+}
+
+.trend-label {
+  margin-top: 6rpx;
+  color: #8491a5;
+  font-size: 22rpx;
+}
+
 .dashboard {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 18rpx;
 }
 
+.extra-stats {
+  margin-top: 18rpx;
+}
+
+.achievement-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18rpx;
+}
+
+.achievement-card {
+  padding: 24rpx 18rpx;
+  text-align: center;
+  opacity: 0.58;
+  filter: grayscale(1);
+}
+
+.achievement-card.unlocked {
+  opacity: 1;
+  filter: none;
+  background: var(--theme-soft);
+}
+
+.achievement-icon {
+  display: block;
+  color: var(--theme-primary);
+  font-size: 44rpx;
+}
+
+.achievement-name {
+  display: block;
+  margin-top: 8rpx;
+  color: #172033;
+  font-size: 28rpx;
+  font-weight: 800;
+}
+
+.achievement-progress {
+  display: block;
+  margin-top: 8rpx;
+  color: #8491a5;
+  font-size: 23rpx;
+}
+
 .quick-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 18rpx;
 }
 
@@ -187,7 +414,7 @@ onShow(loadTasks)
   color: #fff;
   font-size: 38rpx;
   line-height: 58rpx;
-  background: #0b4aa2;
+  background: var(--theme-primary);
 }
 
 .overview {
@@ -208,7 +435,7 @@ onShow(loadTasks)
 }
 
 .overview-line text:last-child {
-  color: #0b4aa2;
+  color: var(--theme-primary);
   font-weight: 800;
 }
 </style>

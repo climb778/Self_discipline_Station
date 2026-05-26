@@ -1,5 +1,5 @@
 <template>
-  <view class="page-shell">
+  <view class="page-shell" :class="themeClass">
     <view class="calendar-card card">
       <view class="month-head">
         <view class="nav" @tap="changeMonth(-1)">‹</view>
@@ -31,28 +31,48 @@
       </view>
       <text class="record-tip">当天完成率 {{ selectedStats.rate }}%</text>
     </view>
+
+    <text class="section-title">当天任务</text>
+    <view v-if="selectedTasks.length" class="day-task-list">
+      <view v-for="task in selectedTasks" :key="task.id" class="day-task card" @tap="goDetail(task.id)">
+        <view class="day-task-main">
+          <text class="day-task-title">{{ task.title }}</text>
+          <view class="day-task-meta">
+            <text class="tag">{{ task.category }}</text>
+            <text class="priority" :class="getPriorityClass(task.priority)">{{ task.priority }}</text>
+          </view>
+        </view>
+        <text class="day-task-status" :class="{ done: task.isCompleted }">{{ task.isCompleted ? '已完成' : '待完成' }}</text>
+      </view>
+    </view>
+    <EmptyState v-else title="当天没有任务" text="选一个有记录的日期，或去新增任务" />
   </view>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
+import EmptyState from '../../components/EmptyState.vue'
 import StatCard from '../../components/StatCard.vue'
 import { formatDate, getMonthDays, getToday } from '../../utils/date'
-import { getTasks } from '../../utils/storage'
-import { getDayStats, getDayStatus } from '../../utils/tasks'
+import { generateRepeatTasks, getTasks, getThemeClass } from '../../utils/storage'
+import { getDayStats, getDayStatus, getPriorityClass, getTasksByDate } from '../../utils/tasks'
 
 const tasks = ref([])
 const cursor = ref(new Date())
 const selectedDate = ref(getToday())
+const themeClass = ref(getThemeClass())
 const weeks = ['日', '一', '二', '三', '四', '五', '六']
 
 const currentYear = computed(() => cursor.value.getFullYear())
 const currentMonth = computed(() => cursor.value.getMonth())
 const monthDays = computed(() => getMonthDays(currentYear.value, currentMonth.value))
 const selectedStats = computed(() => getDayStats(tasks.value, selectedDate.value))
+const selectedTasks = computed(() => getTasksByDate(tasks.value, selectedDate.value))
 
 function loadTasks() {
+  generateRepeatTasks()
+  themeClass.value = getThemeClass()
   tasks.value = getTasks()
 }
 
@@ -68,6 +88,12 @@ function selectDate(date) {
 
 function getStatus(date) {
   return getDayStatus(tasks.value, date)
+}
+
+function goDetail(id) {
+  uni.navigateTo({
+    url: `/pages/task-detail/task-detail?id=${id}`
+  })
 }
 
 onShow(loadTasks)
@@ -108,7 +134,7 @@ onShow(loadTasks)
   width: 64rpx;
   height: 64rpx;
   border-radius: 32rpx;
-  color: #0b4aa2;
+  color: var(--theme-primary);
   text-align: center;
   font-size: 48rpx;
   line-height: 58rpx;
@@ -145,7 +171,7 @@ onShow(loadTasks)
 .day-cell.active {
   color: #fff;
   font-weight: 800;
-  background: #0b4aa2;
+  background: var(--theme-primary);
 }
 
 .dot {
@@ -193,5 +219,65 @@ onShow(loadTasks)
   color: #8491a5;
   font-size: 25rpx;
   text-align: center;
+}
+
+.day-task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.day-task {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  margin: 0;
+}
+
+.day-task-title {
+  display: block;
+  color: #172033;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.day-task-meta {
+  display: flex;
+  gap: 12rpx;
+  margin-top: 16rpx;
+}
+
+.priority {
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  font-weight: 700;
+}
+
+.priority-high {
+  color: #e84f4f;
+  background: #fff0f0;
+}
+
+.priority-mid {
+  color: #d99616;
+  background: #fff7e6;
+}
+
+.priority-low {
+  color: #2e9b68;
+  background: #eaf9f2;
+}
+
+.day-task-status {
+  flex: 0 0 auto;
+  color: #8491a5;
+  font-size: 25rpx;
+  font-weight: 700;
+}
+
+.day-task-status.done {
+  color: #29bf7f;
 }
 </style>
