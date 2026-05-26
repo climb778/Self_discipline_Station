@@ -79,6 +79,10 @@
         <text class="quick-icon">⏱</text>
         <text>开始专注</text>
       </view>
+      <view class="quick card" @tap="goReport">
+        <text class="quick-icon">📊</text>
+        <text>数据报告</text>
+      </view>
       <view class="quick card" @tap="goRecords">
         <text class="quick-icon">⌕</text>
         <text>过往记录</text>
@@ -213,6 +217,12 @@ function goRecords() {
 function goFocus() {
   uni.navigateTo({
     url: '/pages/focus/focus'
+  })
+}
+
+function goReport() {
+  uni.navigateTo({
+    url: '/pages/report/report'
   })
 }
 
@@ -393,7 +403,7 @@ onShow(loadData)
 
 .quick-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 18rpx;
 }
 

@@ -92,7 +92,7 @@
       </view>
       <view class="about-line">
         <text>当前版本</text>
-        <text>V1.4.1</text>
+        <text>V1.5.0</text>
       </view>
       <view class="about-line">
         <text>数据位置</text>

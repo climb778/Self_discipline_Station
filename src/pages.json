@@ -63,6 +63,14 @@
         "navigationBarBackgroundColor": "#0b4aa2",
         "navigationBarTextStyle": "white"
       }
+    },
+    {
+      "path": "pages/report/report",
+      "style": {
+        "navigationBarTitleText": "数据报告",
+        "navigationBarBackgroundColor": "#0b4aa2",
+        "navigationBarTextStyle": "white"
+      }
     }
   ],
   "globalStyle": {
