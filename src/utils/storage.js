@@ -7,7 +7,7 @@ const SETTINGS_STORAGE_KEY = 'SELF_DISCIPLINE_SETTINGS'
 const ACHIEVEMENT_STORAGE_KEY = 'SELF_DISCIPLINE_ACHIEVEMENTS'
 
 export const APP_NAME = '自律小站'
-export const APP_VERSION = '1.4.0'
+export const APP_VERSION = '1.4.1'
 
 export const themeOptions = [
   {
@@ -261,7 +261,12 @@ function shouldGenerateToday(task, today) {
 export function generateRepeatTasks() {
   const today = getToday()
   const tasks = getTasks()
-  const repeatTemplates = tasks.filter(task => task.isRepeat && task.repeatType !== 'none' && !task.sourceRepeatTaskId && !task.isArchived)
+  const repeatTemplates = tasks.filter(
+    task => task.isRepeat
+      && task.repeatType !== 'none'
+      && !task.sourceRepeatTaskId
+      && !task.isArchived
+  )
   const generated = []
 
   for (const template of repeatTemplates) {
@@ -372,7 +377,12 @@ export function validateImportData(data) {
   if (!Array.isArray(data.tasks)) return '缺少 tasks 数组'
   if (data.tasks.some(task => !task || typeof task !== 'object')) return 'tasks 中存在无效任务'
   if (data.focusRecords && !Array.isArray(data.focusRecords)) return 'focusRecords 格式不正确'
-  if (Array.isArray(data.focusRecords) && data.focusRecords.some(record => !record || typeof record !== 'object')) return 'focusRecords 中存在无效记录'
+  if (
+    Array.isArray(data.focusRecords)
+    && data.focusRecords.some(record => !record || typeof record !== 'object')
+  ) {
+    return 'focusRecords 中存在无效记录'
+  }
   if (data.user && typeof data.user !== 'object') return 'user 格式不正确'
   if (data.settings && typeof data.settings !== 'object') return 'settings 格式不正确'
   return ''
@@ -432,14 +442,30 @@ function createDemoTask(index, overrides) {
 export function generateDemoData() {
   const today = getToday()
   const tasks = [
-    createDemoTask(0, { title: '背单词', category: '学习', priority: '高', dueDate: today, enableReminder: true, reminderTime: '20:30' }),
+    createDemoTask(0, {
+      title: '背单词',
+      category: '学习',
+      priority: '高',
+      dueDate: today,
+      enableReminder: true,
+      reminderTime: '20:30'
+    }),
     createDemoTask(0, { title: '跑步 20 分钟', category: '运动', priority: '中', dueDate: today, isCompleted: true }),
     createDemoTask(1, { title: '复习课堂笔记', category: '学习', priority: '中', isCompleted: true }),
     createDemoTask(2, { title: '整理房间', category: '生活', priority: '低', isCompleted: true }),
     createDemoTask(3, { title: '写周报', category: '工作', priority: '高', isCompleted: true }),
     createDemoTask(4, { title: '跳绳', category: '运动', priority: '中', isCompleted: true }),
     createDemoTask(5, { title: '阅读 30 分钟', category: '学习', priority: '中', isCompleted: true, isArchived: true }),
-    createDemoTask(0, { title: '每日复盘', category: '生活', priority: '中', dueDate: today, isRepeat: true, repeatType: 'daily', enableReminder: true, reminderTime: '21:30' })
+    createDemoTask(0, {
+      title: '每日复盘',
+      category: '生活',
+      priority: '中',
+      dueDate: today,
+      isRepeat: true,
+      repeatType: 'daily',
+      enableReminder: true,
+      reminderTime: '21:30'
+    })
   ]
   saveTasks(tasks)
   saveUser({

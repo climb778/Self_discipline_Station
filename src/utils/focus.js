@@ -2,13 +2,19 @@ import { getToday } from './date'
 
 const FOCUS_STORAGE_KEY = 'SELF_DISCIPLINE_FOCUS_RECORDS'
 
+function normalizeMinutes(value, fallback = 0) {
+  const minutes = Number(value)
+  if (!Number.isFinite(minutes)) return fallback
+  return Math.max(0, Math.ceil(minutes))
+}
+
 function normalizeFocusRecord(record = {}) {
   return {
     id: record.id || `focus-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     taskId: record.taskId || '',
     taskTitle: record.taskTitle || '自由专注',
-    duration: Number(record.duration) || 25,
-    actualMinutes: Number(record.actualMinutes) || 0,
+    duration: normalizeMinutes(record.duration, 25) || 25,
+    actualMinutes: normalizeMinutes(record.actualMinutes),
     startedAt: record.startedAt || new Date().toISOString(),
     endedAt: record.endedAt || new Date().toISOString(),
     status: record.status === 'stopped' ? 'stopped' : 'completed'
@@ -22,7 +28,10 @@ export function getFocusRecords() {
 }
 
 export function saveFocusRecords(records) {
-  uni.setStorageSync(FOCUS_STORAGE_KEY, Array.isArray(records) ? records.map(normalizeFocusRecord) : [])
+  const normalizedRecords = Array.isArray(records)
+    ? records.map(normalizeFocusRecord)
+    : []
+  uni.setStorageSync(FOCUS_STORAGE_KEY, normalizedRecords)
 }
 
 export function addFocusRecord(record) {
@@ -35,7 +44,7 @@ export function addFocusRecord(record) {
 
 export function getFocusRecordsByTask(taskId, records = getFocusRecords()) {
   if (!taskId) return []
-  return records.filter(r => r.taskId === taskId)
+  return records.filter(record => record.taskId === taskId)
 }
 
 export function getTaskFocusStats(taskId, allRecords = getFocusRecords()) {
@@ -53,8 +62,8 @@ export function getTaskFocusStats(taskId, allRecords = getFocusRecords()) {
 export function getTodayFocusMinutes(records = getFocusRecords()) {
   const today = getToday()
   return records
-    .filter(r => r.endedAt && r.endedAt.slice(0, 10) === today)
-    .reduce((sum, r) => sum + r.actualMinutes, 0)
+    .filter(record => record.endedAt && record.endedAt.slice(0, 10) === today)
+    .reduce((sum, record) => sum + record.actualMinutes, 0)
 }
 
 export function getWeekFocusMinutes(records = getFocusRecords()) {
@@ -65,8 +74,8 @@ export function getWeekFocusMinutes(records = getFocusRecords()) {
   startOfWeek.setHours(0, 0, 0, 0)
   const startTime = startOfWeek.getTime()
   return records
-    .filter(r => new Date(r.endedAt).getTime() >= startTime)
-    .reduce((sum, r) => sum + r.actualMinutes, 0)
+    .filter(record => new Date(record.endedAt).getTime() >= startTime)
+    .reduce((sum, record) => sum + record.actualMinutes, 0)
 }
 
 export function getTotalFocusStats(records = getFocusRecords()) {

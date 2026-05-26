@@ -2,8 +2,8 @@
   "name": "自律小站",
   "appid": "__UNI__SELF_DISCIPLINE",
   "description": "个人自律打卡和每日任务管理应用",
-  "versionName": "1.4.0",
-  "versionCode": "140",
+  "versionName": "1.4.1",
+  "versionCode": "141",
   "transformPx": false,
   "app-plus": {
     "usingComponents": true

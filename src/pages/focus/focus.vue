@@ -143,7 +143,9 @@ const timerLabel = computed(() => {
 const priorityClass = computed(() => getPriorityClass(taskPriority.value))
 
 const effectiveMinutes = computed(() => {
-  return isCustom.value ? (customMinutes.value || 30) : selectedDuration.value
+  if (!isCustom.value) return selectedDuration.value
+  const minutes = Math.floor(Number(customMinutes.value) || 30)
+  return Math.max(1, minutes)
 })
 
 function selectDuration(d) {
@@ -157,6 +159,7 @@ function startFocus() {
     uni.showToast({ title: '请选择专注时长', icon: 'none' })
     return
   }
+  if (isCustom.value) customMinutes.value = mins
   totalSeconds.value = mins * 60
   remainingSeconds.value = mins * 60
   startedAt.value = new Date().toISOString()
