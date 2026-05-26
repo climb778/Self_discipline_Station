@@ -7,7 +7,7 @@ const SETTINGS_STORAGE_KEY = 'SELF_DISCIPLINE_SETTINGS'
 const ACHIEVEMENT_STORAGE_KEY = 'SELF_DISCIPLINE_ACHIEVEMENTS'
 
 export const APP_NAME = '自律小站'
-export const APP_VERSION = '1.5.0'
+export const APP_VERSION = '1.5.1'
 
 export const themeOptions = [
   {

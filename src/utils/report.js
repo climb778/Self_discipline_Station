@@ -22,15 +22,6 @@ function getMonthRange() {
   return { start, end, startDate: formatDate(start) }
 }
 
-function filterByRange(items, getDate, range) {
-  return items.filter(item => {
-    const d = getDate(item)
-    if (!d) return false
-    const time = new Date(d).getTime()
-    return time >= range.start.getTime() && time <= range.end.getTime()
-  })
-}
-
 function getReportStats(tasks, focusRecords, range) {
   const activeTasks = tasks.filter(t => isRealTask(t) && !t.isArchived)
 
@@ -81,7 +72,9 @@ function getReportStats(tasks, focusRecords, range) {
     .map(c => ({ category: c, count: categoryMap[c] }))
     .sort((a, b) => b.count - a.count)
 
-  const topCategory = categoryStats.length ? categoryStats[0].category : '暂无'
+  const topCategory = categoryStats.length && categoryStats[0].count > 0
+    ? categoryStats[0].category
+    : '暂无'
 
   const continuousDays = calcContinuousDays(completed, range)
 
