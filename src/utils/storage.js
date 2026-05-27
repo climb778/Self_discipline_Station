@@ -1,5 +1,7 @@
 import { formatDate, getToday } from './date'
 import { getFocusRecords, saveFocusRecords } from './focus'
+import { getPlans, savePlans } from './plans'
+import { getStudyLogs, saveStudyLogs } from './studyLogs'
 
 const TASK_STORAGE_KEY = 'SELF_DISCIPLINE_TASKS'
 const USER_STORAGE_KEY = 'SELF_DISCIPLINE_USER'
@@ -7,7 +9,7 @@ const SETTINGS_STORAGE_KEY = 'SELF_DISCIPLINE_SETTINGS'
 const ACHIEVEMENT_STORAGE_KEY = 'SELF_DISCIPLINE_ACHIEVEMENTS'
 
 export const APP_NAME = '自律小站'
-export const APP_VERSION = '1.5.1'
+export const APP_VERSION = '2.0.0'
 
 export const themeOptions = [
   {
@@ -47,11 +49,15 @@ const defaultSettings = {
   enableReminder: true,
   reminderLeadMinutes: 0,
   defaultFocusDuration: 25,
-  enableFocusSound: false
+  enableFocusSound: false,
+  lastBackupAt: '',
+  defaultLaunchPage: 'todo',
+  dataVersion: 0
 }
 
 function makeTaskFields(overrides = {}) {
   return {
+    planId: '',
     isRepeat: false,
     repeatType: 'none',
     repeatDays: [],
@@ -81,6 +87,7 @@ function normalizeTask(task) {
     createdAt: task.createdAt || new Date().toISOString(),
     updatedAt: task.updatedAt || task.createdAt || new Date().toISOString(),
     ...task,
+    planId: task.planId || '',
     repeatDays: Array.isArray(task.repeatDays) ? task.repeatDays : [],
     repeatType: task.repeatType || 'none',
     repeatEndDate: task.repeatEndDate || '',
@@ -156,6 +163,7 @@ export function addTask(payload) {
     completedAt: '',
     createdAt: now,
     updatedAt: now,
+    planId: payload.planId || '',
     isRepeat,
     repeatType: isRepeat ? payload.repeatType || 'daily' : 'none',
     repeatDays: isRepeat ? payload.repeatDays || [] : [],
@@ -195,6 +203,7 @@ export function updateTaskFields(taskId, payload) {
     priority: payload.priority || '中',
     dueDate: payload.dueDate || getToday(),
     isLongTerm: Boolean(payload.isLongTerm),
+    planId: payload.planId || '',
     isRepeat,
     repeatType: isRepeat ? payload.repeatType || 'daily' : 'none',
     repeatDays: isRepeat ? payload.repeatDays || [] : [],
@@ -284,6 +293,7 @@ export function generateRepeatTasks() {
       priority: template.priority,
       dueDate: today,
       isLongTerm: false,
+      planId: template.planId || '',
       isRepeat: false,
       repeatType: 'none',
       repeatDays: [],
@@ -360,13 +370,144 @@ export function saveAchievementUnlocks(unlocks) {
   uni.setStorageSync(ACHIEVEMENT_STORAGE_KEY, unlocks)
 }
 
+export function migrateData() {
+  const settings = getSettings()
+  const currentVersion = settings.dataVersion || 0
+  if (currentVersion >= 200) return
+
+  const tasks = uni.getStorageSync(TASK_STORAGE_KEY)
+  if (Array.isArray(tasks)) {
+    const migrated = tasks.map(t => normalizeTask(t))
+    uni.setStorageSync(TASK_STORAGE_KEY, migrated)
+  }
+
+  const plans = uni.getStorageSync('SELF_DISCIPLINE_PLANS')
+  if (Array.isArray(plans)) {
+    const migrated = plans.map(p => ({
+      id: p.id || `plan-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      title: p.title || '未命名计划',
+      description: p.description || '',
+      category: p.category || '其他',
+      startDate: p.startDate || getToday(),
+      endDate: p.endDate || '',
+      targetDays: p.targetDays || 0,
+      status: p.status || 'active',
+      createdAt: p.createdAt || new Date().toISOString(),
+      updatedAt: p.updatedAt || p.createdAt || new Date().toISOString()
+    }))
+    uni.setStorageSync('SELF_DISCIPLINE_PLANS', migrated)
+  }
+
+  const focusRecords = uni.getStorageSync('SELF_DISCIPLINE_FOCUS_RECORDS')
+  if (Array.isArray(focusRecords)) {
+    const migrated = focusRecords.map(r => ({
+      id: r.id || `focus-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      taskId: r.taskId || '',
+      taskTitle: r.taskTitle || '自由专注',
+      duration: Number(r.duration) || 25,
+      actualMinutes: Math.max(0, Number(r.actualMinutes) || 0),
+      startedAt: r.startedAt || new Date().toISOString(),
+      endedAt: r.endedAt || r.startedAt || new Date().toISOString(),
+      status: r.status === 'stopped' ? 'stopped' : 'completed'
+    }))
+    uni.setStorageSync('SELF_DISCIPLINE_FOCUS_RECORDS', migrated)
+  }
+
+  const studyLogs = uni.getStorageSync('SELF_DISCIPLINE_STUDY_LOGS')
+  if (Array.isArray(studyLogs)) {
+    const migrated = studyLogs.map(l => ({
+      id: l.id || `study-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      date: l.date || getToday(),
+      subject: l.subject || '其他',
+      title: l.title || '',
+      content: l.content || '',
+      duration: Math.max(0, Number(l.duration) || 0),
+      mastery: l.mastery || '中',
+      problems: l.problems || '',
+      nextReview: l.nextReview || '',
+      relatedTaskId: l.relatedTaskId || '',
+      relatedPlanId: l.relatedPlanId || '',
+      createdAt: l.createdAt || new Date().toISOString(),
+      updatedAt: l.updatedAt || l.createdAt || new Date().toISOString()
+    }))
+    uni.setStorageSync('SELF_DISCIPLINE_STUDY_LOGS', migrated)
+  }
+
+  saveSettings({ dataVersion: 200 })
+}
+
+export function healthCheck() {
+  const issues = []
+  const tasks = uni.getStorageSync(TASK_STORAGE_KEY)
+  const plans = uni.getStorageSync('SELF_DISCIPLINE_PLANS')
+  const focusRecords = uni.getStorageSync('SELF_DISCIPLINE_FOCUS_RECORDS')
+  const studyLogs = uni.getStorageSync('SELF_DISCIPLINE_STUDY_LOGS')
+  const settings = uni.getStorageSync(SETTINGS_STORAGE_KEY)
+
+  if (!Array.isArray(tasks)) {
+    uni.setStorageSync(TASK_STORAGE_KEY, [])
+    issues.push('任务数据已初始化')
+  }
+  if (!Array.isArray(plans)) {
+    uni.setStorageSync('SELF_DISCIPLINE_PLANS', [])
+    issues.push('计划数据已初始化')
+  }
+  if (!Array.isArray(focusRecords)) {
+    uni.setStorageSync('SELF_DISCIPLINE_FOCUS_RECORDS', [])
+    issues.push('专注记录已初始化')
+  }
+  if (!Array.isArray(studyLogs)) {
+    uni.setStorageSync('SELF_DISCIPLINE_STUDY_LOGS', [])
+    issues.push('学习记录已初始化')
+  }
+  if (!settings || typeof settings !== 'object') {
+    uni.setStorageSync(SETTINGS_STORAGE_KEY, defaultSettings)
+    issues.push('设置数据已初始化')
+  }
+
+  const validTasks = Array.isArray(tasks) ? tasks : []
+  const validPlans = Array.isArray(plans) ? plans : []
+  const validLogs = Array.isArray(studyLogs) ? studyLogs : []
+  const planIds = new Set(validPlans.map(p => p.id))
+  const taskIds = new Set(validTasks.map(t => t.id))
+
+  let orphanTasks = 0
+  validTasks.forEach(t => {
+    if (t.planId && !planIds.has(t.planId)) orphanTasks++
+  })
+  if (orphanTasks > 0) {
+    issues.push(`${orphanTasks} 个任务关联了不存在的计划`)
+  }
+
+  let orphanPlanLogs = 0
+  let orphanTaskLogs = 0
+  validLogs.forEach(l => {
+    if (l.relatedPlanId && !planIds.has(l.relatedPlanId)) orphanPlanLogs++
+    if (l.relatedTaskId && !taskIds.has(l.relatedTaskId)) orphanTaskLogs++
+  })
+  if (orphanPlanLogs > 0) {
+    issues.push(`${orphanPlanLogs} 条学习记录关联了不存在的计划`)
+  }
+  if (orphanTaskLogs > 0) {
+    issues.push(`${orphanTaskLogs} 条学习记录关联了不存在的任务`)
+  }
+
+  if (issues.length === 0) {
+    return { ok: true, message: '数据健康检查通过，未发现异常。' }
+  }
+  return { ok: false, message: issues.join('；') + '。' }
+}
+
 export function exportAllData() {
   return {
     appName: APP_NAME,
     version: APP_VERSION,
     exportTime: new Date().toISOString(),
     tasks: getTasks(),
+    plans: getPlans(),
     focusRecords: getFocusRecords(),
+    studyLogs: getStudyLogs(),
+    dailyReviews: uni.getStorageSync('SELF_DISCIPLINE_DAILY_REVIEWS') || [],
     user: getUser(),
     settings: getSettings()
   }
@@ -376,12 +517,20 @@ export function validateImportData(data) {
   if (!data || typeof data !== 'object') return 'JSON 内容不是有效对象'
   if (!Array.isArray(data.tasks)) return '缺少 tasks 数组'
   if (data.tasks.some(task => !task || typeof task !== 'object')) return 'tasks 中存在无效任务'
+  if (data.plans && !Array.isArray(data.plans)) return 'plans 格式不正确'
   if (data.focusRecords && !Array.isArray(data.focusRecords)) return 'focusRecords 格式不正确'
   if (
     Array.isArray(data.focusRecords)
     && data.focusRecords.some(record => !record || typeof record !== 'object')
   ) {
     return 'focusRecords 中存在无效记录'
+  }
+  if (data.studyLogs && !Array.isArray(data.studyLogs)) return 'studyLogs 格式不正确'
+  if (
+    Array.isArray(data.studyLogs)
+    && data.studyLogs.some(record => !record || typeof record !== 'object')
+  ) {
+    return 'studyLogs 中存在无效记录'
   }
   if (data.user && typeof data.user !== 'object') return 'user 格式不正确'
   if (data.settings && typeof data.settings !== 'object') return 'settings 格式不正确'
@@ -392,7 +541,10 @@ export function importAllData(data) {
   const error = validateImportData(data)
   if (error) throw new Error(error)
   saveTasks(data.tasks)
+  savePlans(data.plans || [])
   saveFocusRecords(data.focusRecords || [])
+  saveStudyLogs(data.studyLogs || [])
+  uni.setStorageSync('SELF_DISCIPLINE_DAILY_REVIEWS', data.dailyReviews || [])
   uni.setStorageSync(USER_STORAGE_KEY, {
     ...defaultUser,
     ...(data.user || {})
@@ -406,7 +558,10 @@ export function importAllData(data) {
 
 export function clearAllData() {
   saveTasks([])
+  savePlans([])
   saveFocusRecords([])
+  saveStudyLogs([])
+  uni.setStorageSync('SELF_DISCIPLINE_DAILY_REVIEWS', [])
   uni.setStorageSync(USER_STORAGE_KEY, defaultUser)
   uni.setStorageSync(SETTINGS_STORAGE_KEY, defaultSettings)
   saveAchievementUnlocks({})
@@ -428,6 +583,7 @@ function createDemoTask(index, overrides) {
     completedAt: overrides.isCompleted ? `${date}T20:00:00` : '',
     createdAt: `${date}T08:00:00`,
     updatedAt: `${date}T20:00:00`,
+    planId: overrides.planId || '',
     enableReminder: Boolean(overrides.enableReminder),
     reminderTime: overrides.reminderTime || '',
     isArchived: Boolean(overrides.isArchived),
@@ -441,20 +597,26 @@ function createDemoTask(index, overrides) {
 
 export function generateDemoData() {
   const today = getToday()
+  const endDate90 = formatDate(new Date(new Date(`${today}T00:00:00`).getTime() + 90 * 86400000))
+  const endDate60 = formatDate(new Date(new Date(`${today}T00:00:00`).getTime() + 60 * 86400000))
+  const demoPlanId1 = `plan-demo-1-${Date.now()}`
+  const demoPlanId2 = `plan-demo-2-${Date.now()}`
+
   const tasks = [
     createDemoTask(0, {
       title: '背单词',
       category: '学习',
       priority: '高',
       dueDate: today,
+      planId: demoPlanId1,
       enableReminder: true,
       reminderTime: '20:30'
     }),
-    createDemoTask(0, { title: '跑步 20 分钟', category: '运动', priority: '中', dueDate: today, isCompleted: true }),
+    createDemoTask(0, { title: '跑步 20 分钟', category: '运动', priority: '中', dueDate: today, planId: demoPlanId2, isCompleted: true }),
     createDemoTask(1, { title: '复习课堂笔记', category: '学习', priority: '中', isCompleted: true }),
     createDemoTask(2, { title: '整理房间', category: '生活', priority: '低', isCompleted: true }),
     createDemoTask(3, { title: '写周报', category: '工作', priority: '高', isCompleted: true }),
-    createDemoTask(4, { title: '跳绳', category: '运动', priority: '中', isCompleted: true }),
+    createDemoTask(4, { title: '跳绳', category: '运动', priority: '中', isCompleted: true, planId: demoPlanId2 }),
     createDemoTask(5, { title: '阅读 30 分钟', category: '学习', priority: '中', isCompleted: true, isArchived: true }),
     createDemoTask(0, {
       title: '每日复盘',
@@ -468,6 +630,32 @@ export function generateDemoData() {
     })
   ]
   saveTasks(tasks)
+  savePlans([
+    {
+      id: demoPlanId1,
+      title: '英语四级计划',
+      description: '每天背单词、做真题、练听力，稳步提升英语水平',
+      category: '学习',
+      startDate: today,
+      endDate: endDate90,
+      targetDays: 90,
+      status: 'active',
+      createdAt: `${today}T08:00:00`,
+      updatedAt: `${today}T08:00:00`
+    },
+    {
+      id: demoPlanId2,
+      title: '运动减脂计划',
+      description: '坚持运动和健康饮食，每周至少运动 4 次',
+      category: '运动',
+      startDate: today,
+      endDate: endDate60,
+      targetDays: 60,
+      status: 'active',
+      createdAt: `${today}T08:00:00`,
+      updatedAt: `${today}T08:00:00`
+    }
+  ])
   saveUser({
     nickname: '自律行动家',
     signature: '把今天过好，就是最稳的长期主义',
@@ -480,6 +668,38 @@ export function generateDemoData() {
   })
   saveAchievementUnlocks({})
   generateRepeatTasks()
+  saveStudyLogs([
+    {
+      id: `demo-study-${Date.now()}-1`,
+      date: today,
+      subject: '英语',
+      title: '四级词汇 Unit 5',
+      content: '背了 50 个新单词，复习了昨天的 30 个，用词根记忆法效果不错',
+      duration: 45,
+      mastery: '中',
+      problems: '有些长难词容易混淆',
+      nextReview: '明天复习今天的 50 个单词，重点记忆易混淆词',
+      relatedTaskId: tasks[0].id,
+      relatedPlanId: demoPlanId1,
+      createdAt: `${today}T10:00:00`,
+      updatedAt: `${today}T10:00:00`
+    },
+    {
+      id: `demo-study-${Date.now()}-2`,
+      date: today,
+      subject: 'Java',
+      title: '多线程基础',
+      content: '学习了 Thread 类和 Runnable 接口的区别，理解了 synchronized 关键字',
+      duration: 60,
+      mastery: '中',
+      problems: '线程同步的边界条件还需要多练习',
+      nextReview: '写 3 个多线程的小练习',
+      relatedTaskId: '',
+      relatedPlanId: '',
+      createdAt: `${today}T14:00:00`,
+      updatedAt: `${today}T14:00:00`
+    }
+  ])
   saveFocusRecords([
     {
       taskId: tasks[0].id,

@@ -71,6 +71,62 @@
         "navigationBarBackgroundColor": "#0b4aa2",
         "navigationBarTextStyle": "white"
       }
+    },
+    {
+      "path": "pages/plans/plans",
+      "style": {
+        "navigationBarTitleText": "目标计划",
+        "navigationBarBackgroundColor": "#0b4aa2",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/plan-form/plan-form",
+      "style": {
+        "navigationBarTitleText": "新建计划",
+        "navigationBarBackgroundColor": "#0b4aa2",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/plan-detail/plan-detail",
+      "style": {
+        "navigationBarTitleText": "计划详情",
+        "navigationBarBackgroundColor": "#0b4aa2",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/report-poster/report-poster",
+      "style": {
+        "navigationBarTitleText": "报告海报",
+        "navigationBarBackgroundColor": "#0b4aa2",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/ai-plan/ai-plan",
+      "style": {
+        "navigationBarTitleText": "智能计划",
+        "navigationBarBackgroundColor": "#0b4aa2",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/study-log/study-log",
+      "style": {
+        "navigationBarTitleText": "学习记录",
+        "navigationBarBackgroundColor": "#0b4aa2",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/study-log-form/study-log-form",
+      "style": {
+        "navigationBarTitleText": "记录学习",
+        "navigationBarBackgroundColor": "#0b4aa2",
+        "navigationBarTextStyle": "white"
+      }
     }
   ],
   "globalStyle": {

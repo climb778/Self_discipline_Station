@@ -1,6 +1,7 @@
 import { formatDate, getToday } from './date'
 import { categories, isRealTask } from './tasks'
 import { getFocusRecords } from './focus'
+import { getPlanStats, getActivePlans } from './plans'
 
 function getWeekRange() {
   const now = new Date()
@@ -22,7 +23,7 @@ function getMonthRange() {
   return { start, end, startDate: formatDate(start) }
 }
 
-function getReportStats(tasks, focusRecords, range) {
+function getReportStats(tasks, focusRecords, range, plans, studyLogs) {
   const activeTasks = tasks.filter(t => isRealTask(t) && !t.isArchived)
 
   const completed = activeTasks.filter(t => {
@@ -78,6 +79,43 @@ function getReportStats(tasks, focusRecords, range) {
 
   const continuousDays = calcContinuousDays(completed, range)
 
+  const planTaskCompleted = completed.filter(t => t.planId)
+  const planIdsWithProgress = new Set(planTaskCompleted.map(t => t.planId))
+  const pushedPlanCount = plans ? plans.filter(p => planIdsWithProgress.has(p.id)).length : 0
+
+  const planFocusMinutes = focusIn
+    .filter(r => r.taskId && tasks.some(t => t.id === r.taskId && t.planId))
+    .reduce((sum, r) => sum + r.actualMinutes, 0)
+
+  let fastestPlan = '暂无'
+  if (plans && plans.length > 0) {
+    let bestCount = 0
+    for (const p of plans) {
+      const count = planTaskCompleted.filter(t => t.planId === p.id).length
+      if (count > bestCount) {
+        bestCount = count
+        fastestPlan = p.title
+      }
+    }
+  }
+
+  const logsIn = Array.isArray(studyLogs)
+    ? studyLogs.filter(l => {
+        if (!l.date) return false
+        const logTime = new Date(`${l.date}T00:00:00`).getTime()
+        return logTime >= range.start.getTime() && logTime <= range.end.getTime()
+      })
+    : []
+  const studyLogCount = logsIn.length
+  const studyLogMinutes = logsIn.reduce((sum, l) => sum + (l.duration || 0), 0)
+  const subjectMap = {}
+  logsIn.forEach(l => {
+    subjectMap[l.subject] = (subjectMap[l.subject] || 0) + 1
+  })
+  const topStudySubject = Object.keys(subjectMap).length > 0
+    ? Object.entries(subjectMap).sort((a, b) => b[1] - a[1])[0][0]
+    : '暂无'
+
   return {
     completedCount: completed.length,
     newCount: created.length,
@@ -88,7 +126,14 @@ function getReportStats(tasks, focusRecords, range) {
     continuousDays,
     topCategory,
     categoryStats,
-    totalCompletedForCategory: completed.length
+    totalCompletedForCategory: completed.length,
+    pushedPlanCount,
+    planTaskCompleted: planTaskCompleted.length,
+    planFocusMinutes,
+    fastestPlan,
+    studyLogCount,
+    studyLogMinutes,
+    topStudySubject
   }
 }
 
@@ -112,16 +157,16 @@ function calcContinuousDays(completedTasks, range) {
   return count
 }
 
-export function getWeeklyReport(tasks, focusRecords) {
+export function getWeeklyReport(tasks, focusRecords, plans, studyLogs) {
   const range = getWeekRange()
-  const stats = getReportStats(tasks, focusRecords, range)
+  const stats = getReportStats(tasks, focusRecords, range, plans, studyLogs)
   const summary = generateSummary(stats, '周')
   return { ...stats, summary, period: 'week' }
 }
 
-export function getMonthlyReport(tasks, focusRecords) {
+export function getMonthlyReport(tasks, focusRecords, plans, studyLogs) {
   const range = getMonthRange()
-  const stats = getReportStats(tasks, focusRecords, range)
+  const stats = getReportStats(tasks, focusRecords, range, plans, studyLogs)
   const longestStreak = calcLongestStreakInRange(tasks, range)
   const enriched = { ...stats, longestStreak }
   const summary = generateSummary(enriched, '月')
@@ -160,8 +205,9 @@ function calcLongestStreakInRange(tasks, range) {
 function generateSummary(stats, period) {
   const { completedCount, focusMinutes, continuousDays, topCategory, completionRate } = stats
   const longest = stats.longestStreak || continuousDays
+  const { pushedPlanCount, planTaskCompleted, fastestPlan, studyLogCount, studyLogMinutes, topStudySubject } = stats
 
-  if (completedCount === 0 && focusMinutes === 0) {
+  if (completedCount === 0 && focusMinutes === 0 && studyLogCount === 0) {
     return `本${period}暂无数据，从现在开始行动起来吧！每一天都是新的起点。`
   }
 
@@ -176,6 +222,22 @@ function generateSummary(stats, period) {
     parts.push(`最长连续打卡 ${longest} 天`)
   }
 
+  const planParts = []
+  if (pushedPlanCount > 0) {
+    planParts.push(`推进 ${pushedPlanCount} 个计划`)
+  }
+  if (planTaskCompleted > 0) {
+    planParts.push(`完成 ${planTaskCompleted} 项计划任务`)
+  }
+
+  const studyParts = []
+  if (studyLogCount > 0) {
+    studyParts.push(`记录 ${studyLogCount} 次学习`)
+  }
+  if (studyLogMinutes > 0) {
+    studyParts.push(`学习 ${studyLogMinutes} 分钟`)
+  }
+
   let comment = ''
   if (completionRate >= 80) {
     comment = '执行力很强，继续保持！'
@@ -186,8 +248,13 @@ function generateSummary(stats, period) {
   }
 
   const catText = topCategory !== '暂无' ? `最关注「${topCategory}」领域。` : ''
+  const planText = planParts.length > 0 ? `${planParts.join('，')}。` : ''
+  const fastestText = fastestPlan !== '暂无' ? `推进最快的是「${fastestPlan}」。` : ''
+  const studyText = studyParts.length > 0 ? `${studyParts.join('，')}。` : ''
+  const studySubjectText = topStudySubject !== '暂无' ? `学习重点是「${topStudySubject}」。` : ''
 
-  return `本${period}${parts.join('，')}。${catText}${comment}`
+  const mainText = parts.length > 0 ? `本${period}${parts.join('，')}。` : `本${period}`
+  return `${mainText}${planText}${fastestText}${studyText}${studySubjectText}${catText}${comment}`
 }
 
 export function get7DayTaskTrend(tasks) {

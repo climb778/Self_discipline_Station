@@ -37,10 +37,28 @@
       </view>
     </view>
 
+    <text class="section-title">使用偏好</text>
+    <view class="card pref-card">
+      <view class="field">
+        <text class="label">默认启动页</text>
+        <view class="chips">
+          <text v-for="item in launchPageOptions" :key="item.value" class="chip" :class="{ active: settingsForm.defaultLaunchPage === item.value }" @tap="selectLaunchPage(item.value)">{{ item.label }}</text>
+        </view>
+      </view>
+    </view>
+
     <text class="section-title">数据管理</text>
     <view class="card data-card">
+      <view v-if="backupReminder" class="backup-warn">
+        <text class="backup-warn-text">你已经超过 7 天没有备份数据，建议导出一次备份。</text>
+      </view>
+      <view v-if="lastBackupAt" class="backup-info">
+        <text class="backup-label">上次备份</text>
+        <text class="backup-time">{{ lastBackupAt }}</text>
+      </view>
       <view class="button-grid">
         <button class="soft-button" @tap="exportData">导出 JSON</button>
+        <button class="soft-button" @tap="runHealthCheck">数据健康检查</button>
         <button class="soft-button" @tap="generateDemo">生成演示数据</button>
         <button class="danger-soft-button" @tap="confirmClear">清空全部数据</button>
       </view>
@@ -92,7 +110,7 @@
       </view>
       <view class="about-line">
         <text>当前版本</text>
-        <text>V1.5.1</text>
+        <text>V2.0.0</text>
       </view>
       <view class="about-line">
         <text>数据位置</text>
@@ -114,6 +132,7 @@ import {
   getThemeClass,
   getThemeMeta,
   getUser,
+  healthCheck,
   importAllData,
   saveSettings,
   saveUser,
@@ -132,13 +151,29 @@ const settingsForm = reactive({
   enableReminder: true,
   reminderLeadMinutes: 0,
   defaultFocusDuration: 25,
-  enableFocusSound: false
+  enableFocusSound: false,
+  defaultLaunchPage: 'todo'
 })
 
 const focusDurations = [15, 25, 45]
 
+const launchPageOptions = [
+  { label: '每日待办', value: 'todo' },
+  { label: '学习记录', value: 'study' },
+  { label: '我的主页', value: 'profile' },
+  { label: '目标计划', value: 'plans' }
+]
+
 const themeClass = ref(getThemeClass())
 const dataText = ref('')
+const lastBackupAt = ref('')
+
+const backupReminder = computed(() => {
+  if (!lastBackupAt.value) return true
+  const last = new Date(lastBackupAt.value).getTime()
+  const now = Date.now()
+  return now - last > 7 * 24 * 60 * 60 * 1000
+})
 
 const avatarText = computed(() => (userForm.nickname || '自').slice(0, 1))
 const themeColor = computed(() => getThemeMeta(settingsForm.theme).primary)
@@ -146,6 +181,7 @@ const themeColor = computed(() => getThemeMeta(settingsForm.theme).primary)
 function loadData() {
   Object.assign(userForm, getUser())
   Object.assign(settingsForm, getSettings())
+  lastBackupAt.value = settingsForm.lastBackupAt || ''
   themeClass.value = getThemeClass(settingsForm.theme)
   applyThemeChrome(settingsForm.theme)
 }
@@ -162,17 +198,11 @@ function chooseAvatar() {
 
 function saveProfile() {
   if (!userForm.nickname) {
-    uni.showToast({
-      title: '请填写昵称',
-      icon: 'none'
-    })
+    uni.showToast({ title: '请填写昵称', icon: 'none' })
     return
   }
   saveUser({ ...userForm })
-  uni.showToast({
-    title: '已保存',
-    icon: 'success'
-  })
+  uni.showToast({ title: '已保存', icon: 'success' })
 }
 
 function selectTheme(theme) {
@@ -180,6 +210,11 @@ function selectTheme(theme) {
   saveSettings({ ...settingsForm })
   themeClass.value = getThemeClass(theme)
   applyThemeChrome(theme)
+}
+
+function selectLaunchPage(page) {
+  settingsForm.defaultLaunchPage = page
+  saveSettings({ defaultLaunchPage: page })
 }
 
 function updateReminderSwitch(event) {
@@ -199,13 +234,13 @@ function updateFocusSoundSwitch(event) {
 
 function exportData() {
   dataText.value = JSON.stringify(exportAllData(), null, 2)
+  const now = new Date().toISOString()
+  lastBackupAt.value = now
+  saveSettings({ lastBackupAt: now })
   uni.setClipboardData({
     data: dataText.value,
     success: () => {
-      uni.showToast({
-        title: '已复制 JSON',
-        icon: 'none'
-      })
+      uni.showToast({ title: '已复制 JSON', icon: 'none' })
     }
   })
 }
@@ -215,18 +250,12 @@ function confirmImport() {
   try {
     parsed = JSON.parse(dataText.value)
   } catch (error) {
-    uni.showToast({
-      title: 'JSON 格式不正确',
-      icon: 'none'
-    })
+    uni.showToast({ title: 'JSON 格式不正确', icon: 'none' })
     return
   }
   const error = validateImportData(parsed)
   if (error) {
-    uni.showToast({
-      title: error,
-      icon: 'none'
-    })
+    uni.showToast({ title: error, icon: 'none' })
     return
   }
   uni.showModal({
@@ -236,10 +265,7 @@ function confirmImport() {
       if (!res.confirm) return
       importAllData(parsed)
       loadData()
-      uni.showToast({
-        title: '导入完成',
-        icon: 'success'
-      })
+      uni.showToast({ title: '导入完成', icon: 'success' })
     }
   })
 }
@@ -255,10 +281,7 @@ function confirmClear() {
       clearAllData()
       dataText.value = ''
       loadData()
-      uni.showToast({
-        title: '已清空',
-        icon: 'none'
-      })
+      uni.showToast({ title: '已清空', icon: 'none' })
     }
   })
 }
@@ -271,11 +294,17 @@ function generateDemo() {
       if (!res.confirm) return
       generateDemoData()
       loadData()
-      uni.showToast({
-        title: '已生成',
-        icon: 'success'
-      })
+      uni.showToast({ title: '已生成', icon: 'success' })
     }
+  })
+}
+
+function runHealthCheck() {
+  const result = healthCheck()
+  uni.showModal({
+    title: '数据健康检查',
+    content: result.message,
+    showCancel: false
   })
 }
 
@@ -304,7 +333,8 @@ onShow(loadData)
 .theme-card,
 .remind-card,
 .focus-card,
-.about-card {
+.about-card,
+.pref-card {
   margin-top: 0;
 }
 
@@ -414,6 +444,26 @@ onShow(loadData)
   border-radius: 50%;
 }
 
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-top: 18rpx;
+}
+
+.chip {
+  padding: 16rpx 28rpx;
+  border-radius: 999rpx;
+  color: #66758c;
+  font-size: 26rpx;
+  background: #eef4fb;
+}
+
+.chip.active {
+  color: #fff;
+  background: var(--theme-primary);
+}
+
 .button-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -500,5 +550,35 @@ onShow(loadData)
 .focus-duration-chip.active {
   color: #fff;
   background: var(--theme-primary);
+}
+
+.backup-warn {
+  margin-bottom: 20rpx;
+  padding: 18rpx 22rpx;
+  border-radius: 18rpx;
+  background: #fff8e8;
+}
+
+.backup-warn-text {
+  color: #d99616;
+  font-size: 25rpx;
+}
+
+.backup-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+}
+
+.backup-label {
+  color: #8491a5;
+  font-size: 24rpx;
+}
+
+.backup-time {
+  color: #172033;
+  font-size: 24rpx;
+  font-weight: 700;
 }
 </style>

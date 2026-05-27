@@ -45,6 +45,14 @@
         </view>
       </view>
 
+      <view v-if="allPlans.length" class="field">
+        <text class="label">关联计划（可选）</text>
+        <view class="chips">
+          <text class="chip" :class="{ active: !form.planId }" @tap="form.planId = ''">无</text>
+          <text v-for="p in allPlans" :key="p.id" class="chip" :class="{ active: form.planId === p.id }" @tap="form.planId = p.id">{{ p.title }}</text>
+        </view>
+      </view>
+
       <view class="switch-line">
         <view>
           <text class="label">长期任务</text>
@@ -111,6 +119,7 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getToday } from '../../utils/date'
 import { addTask, getTaskById, getThemeClass, getThemeMeta, updateTaskFields } from '../../utils/storage'
 import { categories, priorities } from '../../utils/tasks'
+import { getPlans, getActivePlans } from '../../utils/plans'
 
 const taskId = ref('')
 const isEdit = computed(() => Boolean(taskId.value))
@@ -124,6 +133,7 @@ const form = reactive({
   dueDate: getToday(),
   priority: '中',
   isLongTerm: false,
+  planId: '',
   isRepeat: false,
   repeatType: 'daily',
   repeatDays: [],
@@ -131,6 +141,8 @@ const form = reactive({
   enableReminder: false,
   reminderTime: ''
 })
+
+const allPlans = ref([])
 
 const repeatTypes = [
   { label: '每天', value: 'daily' },
@@ -194,6 +206,7 @@ function fillForm(task) {
   form.dueDate = task.dueDate || getToday()
   form.priority = task.priority || '中'
   form.isLongTerm = Boolean(task.isLongTerm)
+  form.planId = task.planId || ''
   form.isRepeat = Boolean(task.isRepeat)
   form.repeatType = task.repeatType || 'daily'
   form.repeatDays = task.repeatDays ? [...task.repeatDays] : []
@@ -220,9 +233,9 @@ function submit() {
   }
 
   if (isEdit.value) {
-    updateTaskFields(taskId.value, { ...form })
+    updateTaskFields(taskId.value, { ...form, planId: form.planId })
   } else {
-    addTask({ ...form })
+    addTask({ ...form, planId: form.planId })
   }
 
   uni.showToast({
@@ -235,6 +248,9 @@ function submit() {
 }
 
 onLoad(options => {
+  if (options?.planId) {
+    form.planId = options.planId
+  }
   if (!options?.id) return
   taskId.value = options.id
   uni.setNavigationBarTitle({
@@ -254,6 +270,7 @@ onLoad(options => {
 
 onShow(() => {
   themeClass.value = getThemeClass()
+  allPlans.value = getActivePlans(getPlans())
 })
 </script>
 

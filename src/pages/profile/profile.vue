@@ -65,6 +65,64 @@
       <StatCard label="专注次数" :value="totalFocusCount" />
     </view>
 
+    <text class="section-title">学习记录</text>
+    <view class="study-overview card" @tap="goStudyLog">
+      <view class="study-stats-row">
+        <view class="ss-item">
+          <text class="ss-num">{{ todayStudyMinutes }}</text>
+          <text class="ss-label">今日(分)</text>
+        </view>
+        <view class="ss-divider"></view>
+        <view class="ss-item">
+          <text class="ss-num">{{ weekStudyMinutes }}</text>
+          <text class="ss-label">本周(分)</text>
+        </view>
+        <view class="ss-divider"></view>
+        <view class="ss-item">
+          <text class="ss-num">{{ totalStudyCount }}</text>
+          <text class="ss-label">累计记录</text>
+        </view>
+        <view class="ss-divider"></view>
+        <view class="ss-item">
+          <text class="ss-num">{{ recentStudySubject }}</text>
+          <text class="ss-label">最近科目</text>
+        </view>
+      </view>
+    </view>
+
+    <text class="section-title">目标计划</text>
+    <view class="plan-overview card" @tap="goPlans">
+      <view v-if="mostImportantPlan" class="mip-row">
+        <text class="mip-label">当前最重要</text>
+        <text class="mip-name">{{ mostImportantPlan.title }}</text>
+        <text class="mip-rate">{{ mostImportantPlanRate }}%</text>
+      </view>
+      <view v-else class="mip-row">
+        <text class="mip-label">暂无进行中计划</text>
+      </view>
+      <view class="plan-stats-row">
+        <view class="ps-item">
+          <text class="ps-num">{{ activePlanCount }}</text>
+          <text class="ps-label">进行中</text>
+        </view>
+        <view class="ps-divider"></view>
+        <view class="ps-item">
+          <text class="ps-num">{{ completedPlanCount }}</text>
+          <text class="ps-label">已完成</text>
+        </view>
+        <view class="ps-divider"></view>
+        <view class="ps-item">
+          <text class="ps-num">{{ planCompletionRate }}%</text>
+          <text class="ps-label">完成率</text>
+        </view>
+        <view class="ps-divider"></view>
+        <view class="ps-item">
+          <text class="ps-num">{{ allPlans.length }}</text>
+          <text class="ps-label">总计划</text>
+        </view>
+      </view>
+    </view>
+
     <text class="section-title">快捷入口</text>
     <view class="quick-row">
       <view class="quick card" @tap="goAdd">
@@ -79,6 +137,10 @@
         <text class="quick-icon">⏱</text>
         <text>开始专注</text>
       </view>
+      <view class="quick card" @tap="goPlans">
+        <text class="quick-icon">🎯</text>
+        <text>目标计划</text>
+      </view>
       <view class="quick card" @tap="goReport">
         <text class="quick-icon">📊</text>
         <text>数据报告</text>
@@ -86,6 +148,10 @@
       <view class="quick card" @tap="goRecords">
         <text class="quick-icon">⌕</text>
         <text>过往记录</text>
+      </view>
+      <view class="quick card" @tap="goAiPlan">
+        <text class="quick-icon">✦</text>
+        <text>智能计划</text>
       </view>
     </view>
 
@@ -114,6 +180,8 @@ import StatCard from '../../components/StatCard.vue'
 import { getAchievements } from '../../utils/achievements'
 import { applyThemeChrome, generateRepeatTasks, getSettings, getTasks, getThemeClass, getUser } from '../../utils/storage'
 import { getFocusRecords, getTodayFocusMinutes, getWeekFocusMinutes, getTotalFocusStats } from '../../utils/focus'
+import { getPlans, getActivePlans, getCompletedPlans, getPlanStats, getMostImportantPlan } from '../../utils/plans'
+import { getStudyLogs, getTodayStudyMinutes, getWeekStudyMinutes, getRecentSubject } from '../../utils/studyLogs'
 import {
   getActiveTasks,
   getCategorySummary,
@@ -129,6 +197,8 @@ import {
 
 const tasks = ref([])
 const focusRecords = ref([])
+const allPlans = ref([])
+const studyLogs = ref([])
 const themeClass = ref(getThemeClass())
 const user = reactive(getUser())
 
@@ -158,6 +228,25 @@ const totalFocusStats = computed(() => getTotalFocusStats(focusRecords.value))
 const totalFocusMinutes = computed(() => totalFocusStats.value.totalMinutes)
 const totalFocusCount = computed(() => totalFocusStats.value.totalCount)
 
+const activePlanCount = computed(() => getActivePlans(allPlans.value).length)
+const completedPlanCount = computed(() => getCompletedPlans(allPlans.value).length)
+const planCompletionRate = computed(() => {
+  const nonStopped = allPlans.value.filter(p => p.status !== 'stopped')
+  if (nonStopped.length === 0) return 0
+  const rates = nonStopped.map(p => getPlanStats(p.id, tasks.value).rate)
+  return Math.round(rates.reduce((s, r) => s + r, 0) / rates.length)
+})
+const mostImportantPlan = computed(() => getMostImportantPlan(allPlans.value, tasks.value))
+const mostImportantPlanRate = computed(() => {
+  if (!mostImportantPlan.value) return 0
+  return getPlanStats(mostImportantPlan.value.id, tasks.value).rate
+})
+
+const todayStudyMinutes = computed(() => getTodayStudyMinutes(studyLogs.value))
+const weekStudyMinutes = computed(() => getWeekStudyMinutes(studyLogs.value))
+const totalStudyCount = computed(() => studyLogs.value.length)
+const recentStudySubject = computed(() => getRecentSubject(studyLogs.value))
+
 const maxTrendCount = computed(() => Math.max(...trend.value.map(item => item.count), 1))
 
 function barHeight(count) {
@@ -170,6 +259,8 @@ function loadData() {
   generateRepeatTasks()
   tasks.value = getTasks()
   focusRecords.value = getFocusRecords()
+  allPlans.value = getPlans()
+  studyLogs.value = getStudyLogs()
   Object.assign(user, getUser())
   themeClass.value = getThemeClass()
   applyThemeChrome(getSettings().theme)
@@ -224,6 +315,22 @@ function goReport() {
   uni.navigateTo({
     url: '/pages/report/report'
   })
+}
+
+function goPlans() {
+  uni.navigateTo({
+    url: '/pages/plans/plans'
+  })
+}
+
+function goAiPlan() {
+  uni.navigateTo({
+    url: '/pages/ai-plan/ai-plan'
+  })
+}
+
+function goStudyLog() {
+  uni.navigateTo({ url: '/pages/study-log/study-log' })
 }
 
 onShow(loadData)
@@ -403,7 +510,7 @@ onShow(loadData)
 
 .quick-row {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 18rpx;
 }
 
@@ -447,5 +554,111 @@ onShow(loadData)
 .overview-line text:last-child {
   color: var(--theme-primary);
   font-weight: 800;
+}
+
+.plan-overview {
+  padding: 24rpx 28rpx;
+}
+
+.plan-overview:active {
+  transform: scale(0.98);
+}
+
+.mip-row {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  margin-bottom: 20rpx;
+}
+
+.mip-label {
+  color: #8491a5;
+  font-size: 24rpx;
+}
+
+.mip-name {
+  flex: 1;
+  color: #172033;
+  font-size: 28rpx;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mip-rate {
+  color: var(--theme-primary);
+  font-size: 28rpx;
+  font-weight: 800;
+}
+
+.plan-stats-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding-top: 18rpx;
+  border-top: 1rpx solid #edf2f8;
+}
+
+.ps-item {
+  text-align: center;
+}
+
+.ps-num {
+  display: block;
+  color: #172033;
+  font-size: 30rpx;
+  font-weight: 800;
+}
+
+.ps-label {
+  display: block;
+  margin-top: 6rpx;
+  color: #8491a5;
+  font-size: 22rpx;
+}
+
+.ps-divider {
+  width: 1rpx;
+  height: 40rpx;
+  background: #edf2f8;
+}
+
+.study-overview {
+  padding: 24rpx 28rpx;
+}
+
+.study-overview:active {
+  transform: scale(0.98);
+}
+
+.study-stats-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+}
+
+.ss-item {
+  text-align: center;
+}
+
+.ss-num {
+  display: block;
+  color: #172033;
+  font-size: 30rpx;
+  font-weight: 800;
+}
+
+.ss-label {
+  display: block;
+  margin-top: 6rpx;
+  color: #8491a5;
+  font-size: 22rpx;
+}
+
+.ss-divider {
+  width: 1rpx;
+  height: 40rpx;
+  background: #edf2f8;
 }
 </style>

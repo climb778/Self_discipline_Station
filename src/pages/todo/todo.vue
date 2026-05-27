@@ -50,6 +50,27 @@
       <StatCard label="待办任务" :value="todoCount" />
     </view>
 
+    <view class="study-card card" @tap="goStudyLog">
+      <view class="study-header">
+        <text class="study-label">今日所学</text>
+        <text v-if="todayStudyCount > 0" class="study-count">{{ todayStudyCount }} 条</text>
+      </view>
+      <template v-if="todayStudyCount > 0">
+        <view class="study-stats">
+          <text class="study-time">{{ todayStudyMinutes }} 分钟</text>
+          <text class="study-topic">{{ latestStudyTopic }}</text>
+        </view>
+        <view class="study-actions">
+          <text class="study-btn" @tap.stop="goStudyLogForm">继续记录</text>
+          <text class="study-btn secondary" @tap.stop="goStudyLog">查看记录</text>
+        </view>
+      </template>
+      <template v-else>
+        <text class="study-empty">今天学了什么？记录一下，方便以后复盘。</text>
+        <text class="study-btn" @tap.stop="goStudyLogForm">去记录</text>
+      </template>
+    </view>
+
     <text class="section-title">今日任务</text>
     <view v-for="task in todayTasks" :key="task.id" class="task-row">
       <TaskItem :task="task" @toggle="handleToggle" @open="goDetail" />
@@ -72,10 +93,20 @@ import EmptyState from '../../components/EmptyState.vue'
 import { getDisplayDate, getToday } from '../../utils/date'
 import { generateRepeatTasks, getSettings, getTasks, getThemeClass, toggleTask } from '../../utils/storage'
 import { getRate, getReminderInfo, getTodayTasks, getOverdueTasks } from '../../utils/tasks'
+import { getTodayStudyLogs, getTodayStudyMinutes } from '../../utils/studyLogs'
 
 const tasks = ref([])
 const themeClass = ref(getThemeClass())
 const settings = ref(getSettings())
+const todayStudyLogs = ref([])
+
+const todayStudyCount = computed(() => todayStudyLogs.value.length)
+const todayStudyMinutes = computed(() => getTodayStudyMinutes(todayStudyLogs.value))
+const latestStudyTopic = computed(() => {
+  if (!todayStudyLogs.value.length) return ''
+  const sorted = [...todayStudyLogs.value].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  return sorted[0].title
+})
 
 const now = new Date()
 const day = String(now.getDate()).padStart(2, '0')
@@ -117,6 +148,7 @@ function loadTasks() {
   themeClass.value = getThemeClass()
   settings.value = getSettings()
   tasks.value = getTasks()
+  todayStudyLogs.value = getTodayStudyLogs()
 }
 
 function handleToggle(id) {
@@ -139,6 +171,14 @@ function goFocus(taskId) {
   uni.navigateTo({
     url: `/pages/focus/focus?taskId=${taskId}`
   })
+}
+
+function goStudyLog() {
+  uni.navigateTo({ url: '/pages/study-log/study-log' })
+}
+
+function goStudyLogForm() {
+  uni.navigateTo({ url: '/pages/study-log-form/study-log-form' })
 }
 
 onShow(loadTasks)
@@ -308,5 +348,78 @@ onShow(loadTasks)
   font-weight: 700;
   background: var(--theme-soft);
   margin-bottom: 20rpx;
+}
+
+.study-card {
+  margin-top: 22rpx;
+}
+
+.study-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+}
+
+.study-label {
+  color: #172033;
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.study-count {
+  padding: 6rpx 16rpx;
+  border-radius: 999rpx;
+  color: var(--theme-primary);
+  font-size: 22rpx;
+  background: var(--theme-soft);
+}
+
+.study-stats {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  margin-bottom: 18rpx;
+}
+
+.study-time {
+  color: var(--theme-primary);
+  font-size: 30rpx;
+  font-weight: 800;
+}
+
+.study-topic {
+  flex: 1;
+  color: #66758c;
+  font-size: 25rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.study-empty {
+  display: block;
+  margin-bottom: 18rpx;
+  color: #8491a5;
+  font-size: 26rpx;
+}
+
+.study-actions {
+  display: flex;
+  gap: 16rpx;
+}
+
+.study-btn {
+  padding: 14rpx 28rpx;
+  border-radius: 999rpx;
+  color: #fff;
+  font-size: 25rpx;
+  font-weight: 700;
+  background: var(--theme-primary);
+}
+
+.study-btn.secondary {
+  color: var(--theme-primary);
+  background: var(--theme-soft);
 }
 </style>

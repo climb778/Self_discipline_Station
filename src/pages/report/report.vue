@@ -14,7 +14,11 @@
       <EmptyState title="暂无数据" text="完成任务或专注后，这里会展示你的数据报告" />
     </view>
 
-    <template v-else>
+    <view class="poster-entry-wrap">
+      <button class="primary-button poster-entry-btn" @tap="goPoster">生成报告海报</button>
+    </view>
+
+    <template v-if="!isEmpty">
       <text class="section-title">核心数据</text>
       <view class="dashboard">
         <StatCard label="完成任务" :value="report.completedCount" />
@@ -27,6 +31,21 @@
         <StatCard label="专注次数" :value="report.focusCount" />
         <StatCard :label="period === 'week' ? '连续打卡' : '最长连续'" :value="`${streakDays}天`" />
         <StatCard label="最常分类" :value="report.topCategory" />
+      </view>
+
+      <text class="section-title">计划数据</text>
+      <view class="dashboard">
+        <StatCard label="推进计划数" :value="report.pushedPlanCount" />
+        <StatCard label="计划任务完成" :value="report.planTaskCompleted" />
+        <StatCard label="计划专注分钟" :value="report.planFocusMinutes" />
+        <StatCard label="推进最快" :value="report.fastestPlan" />
+      </view>
+
+      <text class="section-title">学习数据</text>
+      <view class="dashboard">
+        <StatCard label="学习记录数" :value="report.studyLogCount" />
+        <StatCard label="学习时长" :value="`${report.studyLogMinutes}分`" />
+        <StatCard label="主要科目" :value="report.topStudySubject" />
       </view>
 
       <text class="section-title">最近 7 天任务完成趋势</text>
@@ -118,22 +137,32 @@ import EmptyState from '../../components/EmptyState.vue'
 import StatCard from '../../components/StatCard.vue'
 import { getTasks, getThemeClass, generateRepeatTasks } from '../../utils/storage'
 import { getFocusRecords } from '../../utils/focus'
+import { getPlans } from '../../utils/plans'
+import { getStudyLogs } from '../../utils/studyLogs'
 import { getWeeklyReport, getMonthlyReport, get7DayTaskTrend, get7DayFocusTrend } from '../../utils/report'
 
 const themeClass = ref(getThemeClass())
 const tasks = ref([])
 const focusRecords = ref([])
+const plans = ref([])
+const studyLogs = ref([])
 const period = ref('week')
 
 const report = computed(() => {
   if (period.value === 'week') {
-    return getWeeklyReport(tasks.value, focusRecords.value)
+    return getWeeklyReport(tasks.value, focusRecords.value, plans.value, studyLogs.value)
   }
-  return getMonthlyReport(tasks.value, focusRecords.value)
+  return getMonthlyReport(tasks.value, focusRecords.value, plans.value, studyLogs.value)
 })
 
 const isEmpty = computed(() => {
-  return report.value.completedCount === 0 && report.value.newCount === 0 && report.value.overdueCount === 0 && report.value.focusCount === 0
+  return report.value.completedCount === 0
+    && report.value.newCount === 0
+    && report.value.overdueCount === 0
+    && report.value.focusCount === 0
+    && report.value.pushedPlanCount === 0
+    && report.value.planTaskCompleted === 0
+    && report.value.studyLogCount === 0
 })
 
 const streakDays = computed(() => {
@@ -166,7 +195,13 @@ function loadData() {
   generateRepeatTasks()
   tasks.value = getTasks()
   focusRecords.value = getFocusRecords()
+  plans.value = getPlans()
+  studyLogs.value = getStudyLogs()
   themeClass.value = getThemeClass()
+}
+
+function goPoster() {
+  uni.navigateTo({ url: `/pages/report-poster/report-poster?type=${period.value}` })
 }
 
 onShow(loadData)
@@ -404,5 +439,15 @@ onShow(loadData)
   font-size: 24rpx;
   opacity: 0.6;
   font-style: italic;
+}
+
+.poster-entry-wrap {
+  padding: 10rpx 0 40rpx;
+}
+
+.poster-entry-btn {
+  height: 88rpx;
+  font-size: 30rpx;
+  line-height: 88rpx;
 }
 </style>
