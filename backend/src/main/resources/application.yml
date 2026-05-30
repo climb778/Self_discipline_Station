@@ -3,8 +3,8 @@ server:
 
 spring:
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/self_discipline_station?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
-    username: ${DB_USERNAME:root}
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:self_discipline_station}?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${DB_USER:root}
     password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
   servlet:
@@ -24,13 +24,17 @@ mybatis-plus:
 
 # 文件上传配置
 file:
-  upload-path: uploads/notes/
-  access-prefix: /uploads/notes/
+  upload-path: ${UPLOAD_PATH:uploads/notes/}
+  access-prefix: ${ACCESS_PREFIX:/uploads/notes/}
 
 # JWT 配置
 jwt:
   secret: ${JWT_SECRET:self-discipline-station-jwt-secret-change-in-production-2026}
   expire-hours: ${JWT_EXPIRE_HOURS:168}
+
+# CORS 跨域配置（逗号分隔）
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://localhost:8080}
 
 # 默认管理员（仅在 app_user 表为空时自动创建）
 app:

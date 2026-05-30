@@ -22,17 +22,19 @@
 
     <!-- Markdown 编辑区 -->
     <view class="editor-card card">
-      <view class="editor-toolbar">
-        <text class="toolbar-btn" @tap="insertMarkdown('heading')">H</text>
-        <text class="toolbar-btn" @tap="insertMarkdown('bold')">B</text>
-        <text class="toolbar-btn" @tap="insertMarkdown('quote')">></text>
-        <text class="toolbar-btn" @tap="insertMarkdown('list')">-</text>
-        <text class="toolbar-btn" @tap="insertMarkdown('code')">`</text>
-        <text class="toolbar-btn" @tap="insertMarkdown('divider')">—</text>
-        <text class="toolbar-btn wikilink-btn" @tap="insertWikilink">[[ ]]</text>
-        <text class="toolbar-btn media-btn" @tap="pickAndUploadImage">图片</text>
-        <text class="toolbar-btn media-btn" @tap="pickAndUploadFile">附件</text>
-      </view>
+      <scroll-view class="editor-toolbar" scroll-x :show-scrollbar="false">
+        <view class="toolbar-inner">
+          <text class="toolbar-btn" @tap="insertMarkdown('heading')">H</text>
+          <text class="toolbar-btn" @tap="insertMarkdown('bold')">B</text>
+          <text class="toolbar-btn" @tap="insertMarkdown('quote')">></text>
+          <text class="toolbar-btn" @tap="insertMarkdown('list')">-</text>
+          <text class="toolbar-btn" @tap="insertMarkdown('code')">`</text>
+          <text class="toolbar-btn" @tap="insertMarkdown('divider')">—</text>
+          <text class="toolbar-btn wikilink-btn" @tap="insertWikilink">[[ ]]</text>
+          <text class="toolbar-btn media-btn" @tap="pickAndUploadImage">图片</text>
+          <text class="toolbar-btn media-btn" @tap="pickAndUploadFile">附件</text>
+        </view>
+      </scroll-view>
       <textarea v-model="form.content" class="editor-textarea" placeholder="输入 Markdown 内容..." :maxlength="-1" @input="onInput" />
     </view>
 
@@ -272,8 +274,18 @@ function pickAndUploadImage() {
   // #ifdef H5
   pickAndUploadH5('image/jpeg,image/png,image/gif,image/webp', IMAGE_EXTS, true)
   // #endif
-  // #ifndef H5
-  uni.showToast({ title: '当前端暂不支持图片上传，请在 H5 中使用', icon: 'none', duration: 2500 })
+  // #ifdef APP-PLUS
+  uni.chooseImage({
+    count: 1,
+    sizeType: ['compressed'],
+    sourceType: ['album', 'camera'],
+    success: (res) => {
+      const filePath = res.tempFilePaths[0]
+      const tempFile = res.tempFiles[0]
+      const name = tempFile.name || ('image_' + Date.now() + '.jpg')
+      doUploadApp(filePath, name, true)
+    }
+  })
   // #endif
 }
 
@@ -281,10 +293,57 @@ function pickAndUploadFile() {
   // #ifdef H5
   pickAndUploadH5('.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar', FILE_EXTS, false)
   // #endif
-  // #ifndef H5
-  uni.showToast({ title: '当前端暂不支持文件上传，请在 H5 中使用', icon: 'none', duration: 2500 })
+  // #ifdef APP-PLUS
+  uni.chooseFile({
+    count: 1,
+    type: 'file',
+    success: (res) => {
+      const filePath = res.tempFilePaths[0]
+      const tempFile = res.tempFiles[0]
+      const name = tempFile.name || ('file_' + Date.now())
+      const ext = getExt(name)
+      if (FILE_EXTS.includes(ext) || IMAGE_EXTS.includes(ext)) {
+        doUploadApp(filePath, name, false)
+      } else {
+        uni.showToast({ title: '请选择 pdf/doc/xls/ppt/txt/zip 格式文件', icon: 'none' })
+      }
+    },
+    fail: () => {
+      // uni.chooseFile 在部分 App 环境不可用时的兜底
+      uni.showToast({ title: '当前 App 版本不支持文件选择，请使用图片按钮上传图片', icon: 'none', duration: 2500 })
+    }
+  })
   // #endif
 }
+
+// #ifdef APP-PLUS
+async function doUploadApp(filePath, fileName, isImage) {
+  if (!isImage) {
+    const ext = getExt(fileName)
+    if (!FILE_EXTS.includes(ext) && !IMAGE_EXTS.includes(ext)) {
+      uni.showToast({ title: '不支持的文件格式', icon: 'none' })
+      return
+    }
+  }
+  uni.showLoading({ title: '上传中...' })
+  try {
+    const res = await uploadNoteAttachment(filePath, fileName)
+    const data = res.data
+    const safeName = sanitizeLinkText(data.fileName || fileName)
+    if (isImage) {
+      form.content += `\n![${safeName}](${data.fileUrl})\n`
+    } else {
+      form.content += `\n[${safeName}](${data.fileUrl})\n`
+    }
+    scheduleAutoSave()
+    uni.showToast({ title: isImage ? '图片已插入' : '附件已插入', icon: 'success' })
+  } catch (e) {
+    // uploadNoteAttachment 内部已 toast
+  } finally {
+    uni.hideLoading()
+  }
+}
+// #endif
 
 async function saveNote() {
   const ok = await doSave(true)
@@ -420,15 +479,20 @@ onUnload(() => {
 }
 
 .editor-toolbar {
-  display: flex;
-  padding: 16rpx 20rpx;
   background: #f8fafd;
   border-bottom: 1rpx solid #edf2f8;
-  gap: 8rpx;
+  white-space: nowrap;
+}
+
+.toolbar-inner {
+  display: inline-flex;
+  padding: 14rpx 20rpx;
+  gap: 12rpx;
 }
 
 .toolbar-btn {
-  width: 64rpx;
+  display: inline-block;
+  min-width: 64rpx;
   height: 56rpx;
   line-height: 56rpx;
   text-align: center;
@@ -437,6 +501,9 @@ onUnload(() => {
   color: #66758c;
   background: #fff;
   border-radius: 12rpx;
+  padding: 0 12rpx;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .toolbar-btn:active {
@@ -444,16 +511,16 @@ onUnload(() => {
 }
 
 .wikilink-btn {
-  width: auto;
+  min-width: auto;
   padding: 0 16rpx;
   font-size: 22rpx;
   color: var(--theme-primary);
 }
 
 .media-btn {
-  width: auto;
-  padding: 0 16rpx;
-  font-size: 22rpx;
+  min-width: auto;
+  padding: 0 20rpx;
+  font-size: 26rpx;
   color: #2e9b68;
 }
 

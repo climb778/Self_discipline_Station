@@ -16,7 +16,6 @@ import java.util.*;
 @RequestMapping("/api/note-attachments")
 public class NoteAttachmentController {
 
-    // TODO: 部署时改成服务器实际绝对路径
     @Value("${file.upload-path:uploads/notes/}")
     private String uploadPath;
 
@@ -28,6 +27,11 @@ public class NoteAttachmentController {
     private static final Set<String> ALLOWED_EXTS = new HashSet<>(Arrays.asList(
             "jpg", "jpeg", "png", "gif", "webp",
             "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "zip", "rar"
+    ));
+
+    private static final Set<String> DANGEROUS_EXTS = new HashSet<>(Arrays.asList(
+            "exe", "bat", "cmd", "sh", "msi", "jar", "com", "scr", "pif",
+            "vbs", "js", "ps1", "php", "py", "rb", "dll", "so", "app"
     ));
 
     private static final Map<String, String> EXT_MIME_MAP = new HashMap<>();
@@ -54,50 +58,69 @@ public class NoteAttachmentController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "originalName", required = false) String originalNameParam,
             HttpServletRequest request) {
+
+        // 1. 空文件检查
         if (file == null || file.isEmpty()) {
-            return Result.fail("上传文件不能为空");
+            return Result.fail(400, "上传文件不能为空");
         }
 
+        // 2. 大小检查
         long size = file.getSize();
         if (size > MAX_FILE_SIZE) {
-            return Result.fail("文件大小不能超过 20MB");
+            return Result.fail(400, "文件大小不能超过 20MB");
         }
 
-        // 优先使用前端传入的原始文件名（blob URL 场景下 multipart 丢失文件名）
-        String originalName = (originalNameParam != null && !originalNameParam.isEmpty())
-                ? originalNameParam
+        // 3. 文件名处理
+        String originalName = (originalNameParam != null && !originalNameParam.trim().isEmpty())
+                ? originalNameParam.trim()
                 : file.getOriginalFilename();
         if (originalName == null || originalName.isEmpty()) {
-            return Result.fail("文件名无效");
+            return Result.fail(400, "文件名无效");
         }
 
-        // 提取扩展名
+        // 4. 路径穿越防护：只取文件名部分，去掉路径分隔符
+        originalName = sanitizeFileName(originalName);
+        if (originalName.isEmpty()) {
+            return Result.fail(400, "文件名无效");
+        }
+
+        // 5. 提取扩展名
         String ext = "";
         int dotIdx = originalName.lastIndexOf('.');
         if (dotIdx > 0) {
             ext = originalName.substring(dotIdx + 1).toLowerCase();
         }
-
-        if (!ALLOWED_EXTS.contains(ext)) {
-            return Result.fail("不支持的文件类型: ." + ext);
+        if (ext.isEmpty()) {
+            return Result.fail(400, "文件必须有扩展名");
         }
 
-        // 二次校验：检查 multipart 原始文件名的扩展名，防止绕过 originalNameParam
+        // 6. 危险扩展名检查
+        if (DANGEROUS_EXTS.contains(ext)) {
+            return Result.fail(400, "不允许上传此类型的文件");
+        }
+
+        // 7. 白名单扩展名检查
+        if (!ALLOWED_EXTS.contains(ext)) {
+            return Result.fail(400, "不支持的文件类型: ." + ext);
+        }
+
+        // 8. 二次校验：检查 multipart 原始文件名的扩展名
         String rawName = file.getOriginalFilename();
         if (rawName != null && !rawName.isEmpty()) {
-            int rawDot = rawName.lastIndexOf('.');
+            String rawSanitized = sanitizeFileName(rawName);
+            int rawDot = rawSanitized.lastIndexOf('.');
             if (rawDot > 0) {
-                String rawExt = rawName.substring(rawDot + 1).toLowerCase();
+                String rawExt = rawSanitized.substring(rawDot + 1).toLowerCase();
                 if (!rawExt.equals(ext)) {
-                    return Result.fail("文件扩展名不一致，上传被拒绝");
+                    return Result.fail(400, "文件扩展名不一致，上传被拒绝");
                 }
             }
         }
 
-        // 生成唯一文件名: 时间戳 + 随机串 + 原始后缀
+        // 9. 生成唯一文件名
         String uniqueName = System.currentTimeMillis() + "_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8) + "." + ext;
 
-        // 解析为绝对路径，避免 transferTo 解析到 Tomcat 临时目录
+        // 10. 解析上传目录
         File dir = new File(uploadPath);
         if (!dir.isAbsolute()) {
             dir = new File(System.getProperty("user.dir"), uploadPath);
@@ -106,17 +129,17 @@ public class NoteAttachmentController {
             dir.mkdirs();
         }
 
+        // 11. 写入文件
         File dest = new File(dir, uniqueName);
         try {
-            // 使用 Files.copy 替代 transferTo，兼容性更好
             Files.copy(file.getInputStream(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
-            return Result.fail("文件保存失败: " + e.getMessage());
+            return Result.fail(500, "文件保存失败");
         }
 
         String fileType = EXT_MIME_MAP.getOrDefault(ext, "application/octet-stream");
 
-        // 构建完整 URL（包含协议、主机、端口）
+        // 12. 构建返回 URL
         String baseUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort();
 
         Map<String, Object> data = new LinkedHashMap<>();
@@ -126,5 +149,24 @@ public class NoteAttachmentController {
         data.put("fileSize", size);
 
         return Result.ok("上传成功", data);
+    }
+
+    /**
+     * 文件名安全处理：去除路径分隔符和危险字符
+     */
+    private String sanitizeFileName(String name) {
+        if (name == null) return "";
+        // 取最后一个路径分隔符之后的部分（防路径穿越）
+        int sep = Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\'));
+        if (sep >= 0) {
+            name = name.substring(sep + 1);
+        }
+        // 去除控制字符和特殊字符
+        name = name.replaceAll("[\\x00-\\x1f\\x7f]", "");
+        // 限制长度
+        if (name.length() > 200) {
+            name = name.substring(0, 200);
+        }
+        return name.trim();
     }
 }

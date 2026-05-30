@@ -102,6 +102,27 @@
       </view>
     </view>
 
+    <text class="section-title">服务器状态</text>
+    <view class="card server-card">
+      <view class="about-line">
+        <text>API 地址</text>
+        <text class="server-url">{{ serverStatus.apiUrl }}</text>
+      </view>
+      <view class="about-line">
+        <text>登录状态</text>
+        <text :class="serverStatus.loggedIn ? 'status-ok' : 'status-warn'">{{ serverStatus.loggedIn ? '已登录' : '未登录' }}</text>
+      </view>
+      <view v-if="serverStatus.user" class="about-line">
+        <text>当前用户</text>
+        <text>{{ serverStatus.user.nickname || serverStatus.user.username }}</text>
+      </view>
+      <view class="about-line">
+        <text>连接检测</text>
+        <text :class="serverStatus.ok ? 'status-ok' : 'status-err'">{{ serverStatus.message || '未检测' }}</text>
+      </view>
+      <button class="soft-button check-button" :loading="serverChecking" @tap="runServerCheck">检测服务器连接</button>
+    </view>
+
     <text class="section-title">关于应用</text>
     <view class="card about-card">
       <view class="about-line">
@@ -110,11 +131,11 @@
       </view>
       <view class="about-line">
         <text>当前版本</text>
-        <text>V2.0.0</text>
+        <text>V3.1.0</text>
       </view>
       <view class="about-line">
         <text>数据位置</text>
-        <text>本地存储</text>
+        <text>本地 + 云端</text>
       </view>
     </view>
   </view>
@@ -139,6 +160,7 @@ import {
   themeOptions,
   validateImportData
 } from '../../utils/storage'
+import { checkServer } from '../../utils/request'
 
 const userForm = reactive({
   nickname: '',
@@ -156,6 +178,14 @@ const settingsForm = reactive({
 })
 
 const focusDurations = [15, 25, 45]
+
+const serverStatus = reactive({
+  apiUrl: '',
+  loggedIn: false,
+  user: null,
+  message: ''
+})
+const serverChecking = ref(false)
 
 const launchPageOptions = [
   { label: '每日待办', value: 'todo' },
@@ -309,7 +339,23 @@ function runHealthCheck() {
   })
 }
 
-onShow(loadData)
+async function runServerCheck() {
+  serverChecking.value = true
+  try {
+    const result = await checkServer()
+    Object.assign(serverStatus, result)
+  } catch (e) {
+    serverStatus.message = '检测异常'
+    serverStatus.ok = false
+  } finally {
+    serverChecking.value = false
+  }
+}
+
+onShow(() => {
+  loadData()
+  runServerCheck()
+})
 </script>
 
 <style scoped>
@@ -581,5 +627,38 @@ onShow(loadData)
   color: #172033;
   font-size: 24rpx;
   font-weight: 700;
+}
+
+.server-card {
+  margin-top: 0;
+}
+
+.server-url {
+  font-size: 22rpx;
+  color: #8491a5;
+  max-width: 400rpx;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-ok {
+  color: #2e9b68;
+  font-weight: 700;
+}
+
+.status-warn {
+  color: #d99616;
+  font-weight: 700;
+}
+
+.status-err {
+  color: #e84f4f;
+  font-weight: 700;
+}
+
+.check-button {
+  margin-top: 18rpx;
 }
 </style>

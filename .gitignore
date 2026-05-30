@@ -24,6 +24,8 @@ pnpm-debug.log*
 *.jks
 .env
 .env.*
+!.env.development
+!.env.production
 application-prod.yml
 *.bak
 

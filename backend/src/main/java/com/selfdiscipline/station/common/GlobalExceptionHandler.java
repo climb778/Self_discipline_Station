@@ -34,9 +34,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
-    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<Void> handleMaxUploadSize(MaxUploadSizeExceededException e) {
-        return Result.fail(500, "文件大小不能超过 20MB");
+        return Result.fail(400, "文件大小不能超过 20MB");
     }
 
     @ExceptionHandler(MultipartException.class)
