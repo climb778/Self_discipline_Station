@@ -1,0 +1,43 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/self_discipline_station?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      logic-delete-field: isDeleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# 文件上传配置
+file:
+  upload-path: uploads/notes/
+  access-prefix: /uploads/notes/
+
+# JWT 配置
+jwt:
+  secret: ${JWT_SECRET:self-discipline-station-jwt-secret-change-in-production-2026}
+  expire-hours: ${JWT_EXPIRE_HOURS:168}
+
+# 默认管理员（仅在 app_user 表为空时自动创建）
+app:
+  admin:
+    username: ${ADMIN_USERNAME:admin}
+    password: ${ADMIN_PASSWORD:admin123}
+    nickname: ${ADMIN_NICKNAME:管理员}
+  register:
+    enabled: ${REGISTER_ENABLED:true}
+    invite-code: ${REGISTER_INVITE_CODE:dev-register-code}

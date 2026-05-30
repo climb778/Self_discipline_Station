@@ -129,13 +129,18 @@ const seedTasks = [
   })
 ]
 
+let tasksNormalized = false
+
 export function getTasks() {
   const stored = uni.getStorageSync(TASK_STORAGE_KEY)
   if (Array.isArray(stored)) {
+    if (tasksNormalized) return stored
     const normalized = stored.map(normalizeTask)
-    saveTasks(normalized)
+    tasksNormalized = true
+    uni.setStorageSync(TASK_STORAGE_KEY, normalized)
     return normalized
   }
+  tasksNormalized = true
   uni.setStorageSync(TASK_STORAGE_KEY, seedTasks)
   return seedTasks
 }
@@ -268,7 +273,10 @@ function shouldGenerateToday(task, today) {
 }
 
 export function generateRepeatTasks() {
+  const lastDate = uni.getStorageSync('SELF_DISCIPLINE_LAST_REPEAT_DATE')
   const today = getToday()
+  if (lastDate === today) return []
+  uni.setStorageSync('SELF_DISCIPLINE_LAST_REPEAT_DATE', today)
   const tasks = getTasks()
   const repeatTemplates = tasks.filter(
     task => task.isRepeat
@@ -281,7 +289,7 @@ export function generateRepeatTasks() {
   for (const template of repeatTemplates) {
     if (!shouldGenerateToday(template, today)) continue
 
-    const alreadyExists = getTasks().some(
+    const alreadyExists = tasks.some(
       task => task.sourceRepeatTaskId === template.id && task.generatedDate === today
     )
     if (alreadyExists) continue

@@ -159,6 +159,7 @@ const focusDurations = [15, 25, 45]
 
 const launchPageOptions = [
   { label: '每日待办', value: 'todo' },
+  { label: '云笔记', value: 'notes' },
   { label: '学习记录', value: 'study' },
   { label: '我的主页', value: 'profile' },
   { label: '目标计划', value: 'plans' }

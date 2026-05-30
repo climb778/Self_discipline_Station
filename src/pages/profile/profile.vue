@@ -5,7 +5,7 @@
       <image v-if="user.avatar" class="avatar-img" :src="user.avatar" mode="aspectFill" />
       <view v-else class="avatar">{{ avatarText }}</view>
       <view class="user-info">
-        <text class="name">{{ user.nickname }}</text>
+        <text class="name">{{ authNickname || user.nickname }}</text>
         <text class="sign">{{ user.signature }}</text>
         <view class="user-meta">
           <text>Lv.{{ level }}</text>
@@ -170,6 +170,16 @@
         <text>{{ categoryText }}</text>
       </view>
     </view>
+
+    <view class="auth-section card" v-if="authUser">
+      <view class="auth-row" @tap="goChangePassword">
+        <text>修改密码</text>
+        <text class="auth-arrow">›</text>
+      </view>
+      <view class="auth-row auth-logout" @tap="handleLogout">
+        <text>退出登录</text>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -182,6 +192,7 @@ import { applyThemeChrome, generateRepeatTasks, getSettings, getTasks, getThemeC
 import { getFocusRecords, getTodayFocusMinutes, getWeekFocusMinutes, getTotalFocusStats } from '../../utils/focus'
 import { getPlans, getActivePlans, getCompletedPlans, getPlanStats, getMostImportantPlan } from '../../utils/plans'
 import { getStudyLogs, getTodayStudyMinutes, getWeekStudyMinutes, getRecentSubject } from '../../utils/studyLogs'
+import { getUserInfo, logout } from '../../utils/auth'
 import {
   getActiveTasks,
   getCategorySummary,
@@ -201,6 +212,8 @@ const allPlans = ref([])
 const studyLogs = ref([])
 const themeClass = ref(getThemeClass())
 const user = reactive(getUser())
+const authUser = computed(() => getUserInfo())
+const authNickname = computed(() => authUser.value?.nickname || '')
 
 const activeTasks = computed(() => getActiveTasks(tasks.value))
 const completedCount = computed(() => activeTasks.value.filter(task => task.isCompleted).length)
@@ -285,6 +298,22 @@ function goSettings() {
   uni.navigateTo({
     url: '/pages/settings/settings'
   })
+}
+
+function handleLogout() {
+  uni.showModal({
+    title: '确认退出',
+    content: '退出后需要重新登录才能同步云笔记',
+    success(res) {
+      if (res.confirm) {
+        logout()
+      }
+    }
+  })
+}
+
+function goChangePassword() {
+  uni.navigateTo({ url: '/pages/change-password/change-password' })
 }
 
 function goAdd() {
@@ -660,5 +689,36 @@ onShow(loadData)
   width: 1rpx;
   height: 40rpx;
   background: #edf2f8;
+}
+
+.auth-section {
+  margin-top: 24rpx;
+  padding: 0;
+  overflow: hidden;
+}
+
+.auth-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx 32rpx;
+  font-size: 28rpx;
+  color: #172033;
+  border-bottom: 1rpx solid #edf2f8;
+}
+
+.auth-row:last-child {
+  border-bottom: none;
+}
+
+.auth-arrow {
+  color: #b0b8c4;
+  font-size: 32rpx;
+}
+
+.auth-logout {
+  color: #e64340;
+  justify-content: center;
+  font-weight: 600;
 }
 </style>

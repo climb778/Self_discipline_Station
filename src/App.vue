@@ -1,17 +1,26 @@
 <script>
 import { applyThemeChrome, generateRepeatTasks, getSettings, migrateData } from './utils/storage'
+import { isLogin } from './utils/auth'
 
 const PAGE_MAP = {
   todo: { url: '/pages/todo/todo', tab: true },
   study: { url: '/pages/study-log/study-log', tab: false },
   profile: { url: '/pages/profile/profile', tab: true },
-  plans: { url: '/pages/plans/plans', tab: false }
+  plans: { url: '/pages/plans/plans', tab: false },
+  notes: { url: '/pages/notes/notes', tab: true }
 }
 
 let defaultLaunchHandled = false
 
 function getRoutePath(url) {
   return url.replace(/^\//, '')
+}
+
+function goLoginPage() {
+  const pages = getCurrentPages()
+  const current = pages[pages.length - 1]?.route || ''
+  if (current === 'pages/login/login' || current === 'pages/register/register') return
+  uni.reLaunch({ url: '/pages/login/login' })
 }
 
 function goFallbackPage() {
@@ -61,7 +70,11 @@ export default {
     applyThemeChrome()
 
     try {
-      setTimeout(() => openDefaultLaunchPage(), 80)
+      if (!isLogin()) {
+        goLoginPage()
+      } else {
+        setTimeout(() => openDefaultLaunchPage(), 80)
+      }
     } catch (e) {
       goFallbackPage()
     }

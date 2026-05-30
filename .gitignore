@@ -6,10 +6,26 @@ unpackage/
 .idea/
 .DS_Store
 
-*.zip
-dev-server.log
-dev-server.err.log
+# Build output
+backend/target/
+
+# Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# Archives
+*.zip
+
+# Sensitive files
+*.keystore
+*.jks
+.env
+.env.*
+application-prod.yml
+*.bak
+
+# Uploads
+uploads/
