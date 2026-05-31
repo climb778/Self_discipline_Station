@@ -2,7 +2,7 @@
     "name" : "自律小站",
     "appid" : "__UNI__59DF11F",
     "description" : "个人自律打卡和每日任务管理应用",
-    "versionName" : "3.0.1",
+    "versionName" : "3.1.0",
     "versionCode" : 101,
     "vueVersion" : "3",
     "transformPx" : false,

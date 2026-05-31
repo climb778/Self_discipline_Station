@@ -19,6 +19,9 @@ pnpm-debug.log*
 # Archives
 *.zip
 
+# APK release builds
+release/
+
 # Sensitive files
 *.keystore
 *.jks

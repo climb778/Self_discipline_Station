@@ -1,4 +1,7 @@
 import { get, post, put, del, BASE_URL, handle401 } from '../utils/request'
+// #ifdef APP-PLUS
+import { LOCAL_URL } from '../utils/request'
+// #endif
 import { getToken } from '../utils/auth'
 
 // 上传接口地址与 API 请求地址统一，由 request.js 的 BASE_URL 控制
@@ -115,36 +118,53 @@ export function uploadNoteAttachment(filePath, originalName) {
     header['Authorization'] = 'Bearer ' + token
   }
 
-  return new Promise((resolve, reject) => {
-    uni.uploadFile({
-      url: UPLOAD_BASE + '/api/note-attachments/upload',
-      filePath,
-      name: 'file',
-      header,
-      formData: originalName ? { originalName } : undefined,
-      success: (res) => {
-        try {
-          if (res.statusCode === 401) {
-            handle401()
-            reject({ code: 401, message: '未登录或登录已过期' })
-            return
+  function doUpload(baseUrl, silent) {
+    return new Promise((resolve, reject) => {
+      uni.uploadFile({
+        url: baseUrl + '/api/note-attachments/upload',
+        filePath,
+        name: 'file',
+        header,
+        formData: originalName ? { originalName } : undefined,
+        success: (res) => {
+          try {
+            if (res.statusCode === 401) {
+              handle401()
+              reject({ code: 401, message: '未登录或登录已过期' })
+              return
+            }
+            const body = JSON.parse(res.data)
+            if (body.code === 200) {
+              resolve(body)
+            } else if (!silent) {
+              uni.showToast({ title: body.message || '上传失败', icon: 'none' })
+              reject(body)
+            } else {
+              reject(new Error('silent-fail'))
+            }
+          } catch (e) {
+            if (!silent) {
+              uni.showToast({ title: '上传响应解析失败', icon: 'none' })
+            }
+            reject(e)
           }
-          const body = JSON.parse(res.data)
-          if (body.code === 200) {
-            resolve(body)
+        },
+        fail: (err) => {
+          if (silent) {
+            reject(new Error('silent-fail'))
           } else {
-            uni.showToast({ title: body.message || '上传失败', icon: 'none' })
-            reject(body)
+            uni.showToast({ title: '网络连接失败', icon: 'none' })
+            reject(err)
           }
-        } catch (e) {
-          uni.showToast({ title: '上传响应解析失败', icon: 'none' })
-          reject(e)
         }
-      },
-      fail: (err) => {
-        uni.showToast({ title: '网络连接失败', icon: 'none' })
-        reject(err)
-      }
+      })
     })
-  })
+  }
+
+  // #ifdef APP-PLUS
+  return doUpload(LOCAL_URL, true).catch(() => doUpload(UPLOAD_BASE, false))
+  // #endif
+  // #ifdef H5
+  return doUpload(UPLOAD_BASE, false)
+  // #endif
 }

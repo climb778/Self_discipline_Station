@@ -65,18 +65,31 @@ async function handleLogin() {
   }
 
   loading.value = true
+  console.log('[login] start, loading=true')
+  // 安全超时：20 秒后强制关闭 loading
+  const safetyTimer = setTimeout(() => {
+    if (loading.value) {
+      console.warn('[login] safety timeout, force loading=false')
+      loading.value = false
+      uni.showToast({ title: '请求超时，请重试', icon: 'none' })
+    }
+  }, 20000)
   try {
     const res = await login({
       username: username.value.trim(),
       password: password.value
     })
+    console.log('[login] success', JSON.stringify(res.data).substring(0, 100))
     setToken(res.data.token)
     setUserInfo(res.data.user)
     uni.showToast({ title: '登录成功', icon: 'success' })
     setTimeout(() => goHome(), 500)
   } catch (e) {
+    console.error('[login] catch', JSON.stringify(e))
     // request.js 已处理 toast
   } finally {
+    clearTimeout(safetyTimer)
+    console.log('[login] finally, loading=false')
     loading.value = false
   }
 }

@@ -30,6 +30,9 @@
           <text class="toolbar-btn" @tap="insertMarkdown('list')">-</text>
           <text class="toolbar-btn" @tap="insertMarkdown('code')">`</text>
           <text class="toolbar-btn" @tap="insertMarkdown('divider')">—</text>
+          <text class="toolbar-btn" @tap="insertMarkdown('orderedlist')">1.</text>
+          <text class="toolbar-btn" @tap="insertMarkdown('link')">链接</text>
+          <text class="toolbar-btn" @tap="insertMarkdown('imagelink')">图片链接</text>
           <text class="toolbar-btn wikilink-btn" @tap="insertWikilink">[[ ]]</text>
           <text class="toolbar-btn media-btn" @tap="pickAndUploadImage">图片</text>
           <text class="toolbar-btn media-btn" @tap="pickAndUploadFile">附件</text>
@@ -38,8 +41,8 @@
       <textarea v-model="form.content" class="editor-textarea" placeholder="输入 Markdown 内容..." :maxlength="-1" @input="onInput" />
     </view>
 
-    <!-- 自动保存提示 -->
-    <text v-if="autoSaved" class="auto-saved">已自动保存</text>
+    <!-- 保存状态提示 -->
+    <text v-if="saveStatus !== 'idle'" class="save-status" :class="'status-' + saveStatus">{{ statusText }}</text>
 
     <!-- 操作栏 -->
     <view class="action-bar">
@@ -52,7 +55,7 @@
 
 <script setup>
 import { computed, reactive, ref } from 'vue'
-import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
+import { onLoad, onShow, onUnload, onBackPress } from '@dcloudio/uni-app'
 import { getThemeClass } from '../../utils/storage'
 import { getNoteDetail, createNote, updateNote, getFolderList, uploadNoteAttachment, createNoteVersion } from '../../api/notes'
 
@@ -61,10 +64,22 @@ const noteId = ref('')
 const isEdit = computed(() => Boolean(noteId.value))
 const folders = ref([])
 const formDirty = ref(false)
-const autoSaved = ref(false)
 const saving = ref(false)
+const saveStatus = ref('idle')
+const lastSavedForm = ref('')
+const leavingAfterSave = ref(false)
 let autoSaveTimer = null
-let autoSavedTimer = null
+let draftSaveTimer = null
+let statusClearTimer = null
+
+const STATUS_TEXT = {
+  modified: '有未保存修改',
+  draft: '草稿已保存',
+  saving: '正在保存...',
+  saved: '已保存到云端',
+  error: '保存失败'
+}
+const statusText = computed(() => STATUS_TEXT[saveStatus.value] || '')
 
 const form = reactive({
   title: '',
@@ -93,9 +108,20 @@ function scheduleAutoSave() {
   formDirty.value = true
   if (autoSaveTimer) clearTimeout(autoSaveTimer)
   autoSaveTimer = setTimeout(() => doSave(false), 2000)
+  scheduleDraftSave()
+}
+
+function scheduleDraftSave() {
+  if (draftSaveTimer) clearTimeout(draftSaveTimer)
+  draftSaveTimer = setTimeout(() => {
+    saveDraft()
+  }, 1500)
 }
 
 function onInput() {
+  if (saveStatus.value !== 'saving') {
+    saveStatus.value = 'modified'
+  }
   scheduleAutoSave()
 }
 
@@ -111,7 +137,9 @@ async function doSave(manual) {
   if (!manual && !form.title && !form.content) return false
 
   saving.value = true
+  saveStatus.value = 'saving'
   if (autoSaveTimer) { clearTimeout(autoSaveTimer); autoSaveTimer = null }
+  if (draftSaveTimer) { clearTimeout(draftSaveTimer); draftSaveTimer = null }
 
   try {
     if (isEdit.value) {
@@ -120,54 +148,122 @@ async function doSave(manual) {
       const res = await createNote(buildPayload())
       const newId = res.data && res.data.id
       if (newId) {
+        clearDraft() // clear 'new' draft
         noteId.value = String(newId)
       }
-      clearDraft()
     }
     formDirty.value = false
+    updateLastSavedForm()
+    clearDraft()
     if (manual) {
+      saveStatus.value = 'saved'
       uni.showToast({ title: '已保存', icon: 'success' })
     } else {
-      showAutoSaved()
+      saveStatus.value = 'saved'
     }
+    if (statusClearTimer) clearTimeout(statusClearTimer)
+    statusClearTimer = setTimeout(() => {
+      if (saveStatus.value === 'saved') saveStatus.value = 'idle'
+    }, 3000)
     return true
   } catch (e) {
+    saveStatus.value = 'error'
     return false
   } finally {
     saving.value = false
   }
 }
 
-function showAutoSaved() {
-  autoSaved.value = true
-  if (autoSavedTimer) clearTimeout(autoSavedTimer)
-  autoSavedTimer = setTimeout(() => { autoSaved.value = false }, 2000)
+function getDraftKey() {
+  return noteId.value
+    ? `SELF_DISCIPLINE_DRAFT_${noteId.value}`
+    : 'SELF_DISCIPLINE_DRAFT_new'
 }
 
 function saveDraft() {
   if (!form.title && !form.content) return
-  uni.setStorageSync('SELF_DISCIPLINE_NOTE_DRAFT', { ...form, savedAt: Date.now() })
+  uni.setStorageSync(getDraftKey(), { ...form, savedAt: Date.now() })
+  if (saveStatus.value === 'modified') {
+    saveStatus.value = 'draft'
+  }
 }
 
 function loadDraft() {
-  return uni.getStorageSync('SELF_DISCIPLINE_NOTE_DRAFT') || null
+  return uni.getStorageSync(getDraftKey()) || null
 }
 
 function clearDraft() {
-  uni.removeStorageSync('SELF_DISCIPLINE_NOTE_DRAFT')
+  uni.removeStorageSync(getDraftKey())
 }
 
+function updateLastSavedForm() {
+  lastSavedForm.value = JSON.stringify({
+    title: form.title,
+    content: form.content,
+    folderId: form.folderId,
+    tags: form.tags
+  })
+}
+
+const hasUnsavedChanges = computed(() => {
+  if (!lastSavedForm.value) return false
+  const current = JSON.stringify({
+    title: form.title,
+    content: form.content,
+    folderId: form.folderId,
+    tags: form.tags
+  })
+  return current !== lastSavedForm.value
+})
+
 function insertMarkdown(type) {
+  if (type === 'link') {
+    insertLink()
+    return
+  }
+  if (type === 'imagelink') {
+    insertImageLink()
+    return
+  }
   const inserts = {
     heading: '\n## ',
     bold: '**加粗文字**',
     quote: '\n> 引用内容',
     list: '\n- 列表项',
+    orderedlist: '\n1. 列表项',
     code: '\n```\n代码\n```',
     divider: '\n---\n'
   }
   form.content += (inserts[type] || '')
   scheduleAutoSave()
+}
+
+function insertLink() {
+  uni.showModal({
+    title: '插入链接',
+    editable: true,
+    placeholderText: '输入链接地址 https://...',
+    success: (res) => {
+      if (res.confirm && res.content) {
+        form.content += `[链接文字](${res.content})`
+        scheduleAutoSave()
+      }
+    }
+  })
+}
+
+function insertImageLink() {
+  uni.showModal({
+    title: '插入图片链接',
+    editable: true,
+    placeholderText: '输入图片地址 https://...',
+    success: (res) => {
+      if (res.confirm && res.content) {
+        form.content += `![图片描述](${res.content})`
+        scheduleAutoSave()
+      }
+    }
+  })
 }
 
 function insertWikilink() {
@@ -346,8 +442,9 @@ async function doUploadApp(filePath, fileName, isImage) {
 // #endif
 
 async function saveNote() {
+  leavingAfterSave.value = true
   const ok = await doSave(true)
-  if (!ok) return
+  if (!ok) { leavingAfterSave.value = false; return }
 
   if (isEdit.value) {
     setTimeout(() => uni.redirectTo({ url: `/pages/note-detail/note-detail?id=${noteId.value}` }), 300)
@@ -359,6 +456,17 @@ async function saveNote() {
       setTimeout(() => uni.navigateBack(), 300)
     }
   }
+}
+
+async function saveAndLeave() {
+  leavingAfterSave.value = true
+  const ok = await doSave(true)
+  if (!ok) {
+    leavingAfterSave.value = false
+    return
+  }
+  clearDraft()
+  uni.navigateBack()
 }
 
 function goPreview() {
@@ -383,6 +491,41 @@ async function loadFolders() {
   }
 }
 
+function checkDraftAndRecover(cloudUpdatedAt) {
+  const draft = loadDraft()
+  if (!draft || (!draft.title && !draft.content)) return
+
+  // 编辑模式：草稿不比云端新则自动清理，不弹窗
+  if (cloudUpdatedAt) {
+    const draftTime = draft.savedAt || 0
+    const cloudTime = new Date(cloudUpdatedAt).getTime() || 0
+    if (draftTime <= cloudTime) {
+      clearDraft()
+      return
+    }
+  }
+
+  const draftTime = draft.savedAt || 0
+  uni.showModal({
+    title: '发现本地草稿',
+    content: `草稿时间：${new Date(draftTime).toLocaleString()}\n标题：${draft.title || '(无标题)'}\n\n是否恢复草稿？`,
+    confirmText: '恢复草稿',
+    cancelText: '放弃草稿',
+    success: (res) => {
+      if (res.confirm) {
+        form.title = draft.title || ''
+        form.content = draft.content || ''
+        form.folderId = draft.folderId || null
+        form.tags = draft.tags || ''
+        formDirty.value = true
+        saveStatus.value = 'modified'
+      } else {
+        clearDraft()
+      }
+    }
+  })
+}
+
 onLoad(options => {
   if (options?.id) {
     noteId.value = options.id
@@ -394,17 +537,17 @@ onLoad(options => {
       form.folderId = note.folderId || null
       form.tags = note.tags || ''
       formDirty.value = false
+      updateLastSavedForm()
+      checkDraftAndRecover(note.updateTime || note.updatedAt)
     }).catch(() => {
       uni.showToast({ title: '笔记不存在', icon: 'none' })
       setTimeout(() => uni.navigateBack(), 500)
     })
   } else {
+    updateLastSavedForm()
     const draft = loadDraft()
     if (draft && (draft.title || draft.content)) {
-      form.title = draft.title || ''
-      form.content = draft.content || ''
-      form.folderId = draft.folderId || null
-      form.tags = draft.tags || ''
+      checkDraftAndRecover()
     }
   }
 })
@@ -414,10 +557,31 @@ onShow(() => {
   loadFolders()
 })
 
+onBackPress(() => {
+  if (leavingAfterSave.value) return false
+  if (!hasUnsavedChanges.value) return false
+  uni.showActionSheet({
+    itemList: ['继续编辑', '放弃修改', '保存后离开'],
+    success: (res) => {
+      if (res.tapIndex === 0) {
+        // 继续编辑 — do nothing
+      } else if (res.tapIndex === 1) {
+        leavingAfterSave.value = true
+        clearDraft()
+        uni.navigateBack()
+      } else if (res.tapIndex === 2) {
+        saveAndLeave()
+      }
+    }
+  })
+  return true // prevent default back
+})
+
 onUnload(() => {
   if (autoSaveTimer) clearTimeout(autoSaveTimer)
-  if (autoSavedTimer) clearTimeout(autoSavedTimer)
-  if (!isEdit.value && formDirty.value) {
+  if (draftSaveTimer) clearTimeout(draftSaveTimer)
+  if (statusClearTimer) clearTimeout(statusClearTimer)
+  if (!leavingAfterSave.value && formDirty.value && saveStatus.value !== 'saved' && saveStatus.value !== 'saving') {
     saveDraft()
   }
   uni.removeStorageSync('SELF_DISCIPLINE_NOTE_PREVIEW')
@@ -534,12 +698,31 @@ onUnload(() => {
   line-height: 1.7;
 }
 
-.auto-saved {
+.save-status {
   display: block;
   text-align: center;
   font-size: 24rpx;
-  color: #2e9b68;
   margin: 12rpx 0 4rpx;
+}
+
+.status-modified {
+  color: #e67e22;
+}
+
+.status-draft {
+  color: #3498db;
+}
+
+.status-saving {
+  color: #95a5a6;
+}
+
+.status-saved {
+  color: #2e9b68;
+}
+
+.status-error {
+  color: #e74c3c;
 }
 
 .action-bar {
