@@ -2,7 +2,6 @@ import { getToken, removeToken, removeUserInfo } from './auth'
 
 // #ifdef APP-PLUS
 const CLOUD_URL = 'http://api.apotatoapit.icu'
-const LOCAL_URL = 'http://192.168.1.101'
 // #endif
 // #ifdef H5
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://api.apotatoapit.icu'
@@ -10,7 +9,6 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://api.apotatoapit.ic
 
 // #ifdef APP-PLUS
 export { CLOUD_URL as BASE_URL }
-export { LOCAL_URL }
 // #endif
 // #ifdef H5
 export { BASE_URL }
@@ -85,60 +83,41 @@ export function request(options) {
     header['Authorization'] = 'Bearer ' + token
   }
   const method = options.method || 'GET'
+  const url = CLOUD_URL + options.url
+  console.log('[request]', method, url)
 
-  let settled = false
-
-  function doRequest(baseUrl, timeout, silent) {
-    const url = baseUrl + options.url
-    console.log('[request]', method, url, 'timeout=' + timeout, silent ? '(retry)' : '')
-    return new Promise((resolve, reject) => {
-      uni.request({
-        url,
-        method,
-        data: options.data,
-        timeout,
-        header,
-        success: (res) => {
-          if (settled) return
-          if (res.statusCode === 401) {
-            settled = true
-            handle401()
-            reject({ code: 401, message: '未登录或登录已过期' })
-            return
-          }
-          if (res.statusCode === 200 && res.data && res.data.code === 200) {
-            console.log('[request.ok]', url)
-            settled = true
-            resolve(res.data)
-          } else if (!silent) {
-            settled = true
-            const msg = (res.data && res.data.message) || '请求失败'
-            uni.showToast({ title: msg, icon: 'none' })
-            reject(res.data || { code: res.statusCode, message: msg })
-          } else {
-            reject(new Error('silent-fail'))
-          }
-        },
-        fail: (err) => {
-          if (settled) { reject(new Error('settled')); return }
-          console.error('[request.fail]', method, url, (err && err.errMsg) || '')
-          if (silent) {
-            reject(new Error('silent-fail'))
-          } else {
-            settled = true
-            const errMsg = (err && err.errMsg) || '未知错误'
-            const isTimeout = errMsg.includes('timeout')
-            const message = isTimeout ? '请求超时，请检查网络' : '网络连接失败，请检查网络或服务器'
-            uni.showToast({ title: message, icon: 'none', duration: 3000 })
-            reject({ code: -1, message, detail: errMsg, url })
-          }
+  return new Promise((resolve, reject) => {
+    uni.request({
+      url,
+      method,
+      data: options.data,
+      timeout: 15000,
+      header,
+      success: (res) => {
+        if (res.statusCode === 401) {
+          handle401()
+          reject({ code: 401, message: '未登录或登录已过期' })
+          return
         }
-      })
+        if (res.statusCode === 200 && res.data && res.data.code === 200) {
+          console.log('[request.ok]', url)
+          resolve(res.data)
+        } else {
+          const msg = (res.data && res.data.message) || '请求失败'
+          uni.showToast({ title: msg, icon: 'none' })
+          reject(res.data || { code: res.statusCode, message: msg })
+        }
+      },
+      fail: (err) => {
+        const errMsg = (err && err.errMsg) || '未知错误'
+        const isTimeout = errMsg.includes('timeout')
+        const message = isTimeout ? '请求超时，请检查网络' : '网络连接失败，请检查网络或服务器'
+        console.error('[request.fail]', method, url, errMsg)
+        uni.showToast({ title: message, icon: 'none', duration: 3000 })
+        reject({ code: -1, message, detail: errMsg, url })
+      }
     })
-  }
-
-  return doRequest(LOCAL_URL, 3000, true)
-    .catch(() => doRequest(CLOUD_URL, 15000, false))
+  })
 }
 // #endif
 

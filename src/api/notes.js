@@ -1,7 +1,4 @@
 import { get, post, put, del, BASE_URL, handle401 } from '../utils/request'
-// #ifdef APP-PLUS
-import { LOCAL_URL } from '../utils/request'
-// #endif
 import { getToken } from '../utils/auth'
 
 // 上传接口地址与 API 请求地址统一，由 request.js 的 BASE_URL 控制
@@ -161,10 +158,5 @@ export function uploadNoteAttachment(filePath, originalName) {
     })
   }
 
-  // #ifdef APP-PLUS
-  return doUpload(LOCAL_URL, true).catch(() => doUpload(UPLOAD_BASE, false))
-  // #endif
-  // #ifdef H5
   return doUpload(UPLOAD_BASE, false)
-  // #endif
 }
