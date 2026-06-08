@@ -1,11 +1,11 @@
 import { getToken, removeToken, removeUserInfo } from './auth'
 
 // #ifdef APP-PLUS
-const CLOUD_URL = 'https://api.apotatoapit.icu'
+const CLOUD_URL = 'http://api.apotatoapit.icu'
 const LOCAL_URL = 'http://192.168.1.101'
 // #endif
 // #ifdef H5
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.apotatoapit.icu'
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://api.apotatoapit.icu'
 // #endif
 
 // #ifdef APP-PLUS

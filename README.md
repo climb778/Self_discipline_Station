@@ -4,6 +4,13 @@
 
 前端基于 uni-app + Vue 3，后端基于 Spring Boot + MySQL。支持 H5 浏览器访问和 Android App 两种使用方式。
 
+## 当前发布
+
+- 当前版本：`v3.1.2`（HTTP API 版）
+- Android APK：[GitHub Releases / v3.1.2](https://github.com/climb778/Self_discipline_Station/releases/tag/v3.1.2)
+- 线上 API：`http://api.apotatoapit.icu`
+- API 健康检查：`http://api.apotatoapit.icu/api/health`
+
 ## 技术栈
 
 **前端：**
@@ -86,12 +93,14 @@ mvn spring-boot:run
 - APK 文件不提交到源码仓库，如需发布可使用 GitHub Release
 - 最低支持 Android 5.0（API 21）
 - 应用已配置为竖屏模式
+- 当前 Android 包使用 Sakura Frp HTTP API，并已启用 `usesCleartextTraffic=true` 以允许 HTTP 明文请求
 
 ## 部署说明
 
 - 后端可部署到 Linux 服务器
 - 通过 Nginx 反向代理 `/api/` 到后端端口
-- 可配合 Cloudflare Tunnel 暴露 HTTPS API
+- 当前线上 App 使用 Sakura Frp HTTP 隧道暴露 API：`http://api.apotatoapit.icu`
+- 如需切回 HTTPS，需要先配置受信任 CA 签发的证书，避免 Android/Windows 提示证书不可信
 - 生产环境应使用环境变量配置数据库和 JWT 密钥
 - 不要把生产密码写进代码仓库
 
@@ -121,6 +130,23 @@ mvn spring-boot:run
 | V2.0 | Android 打包适配、学习记录草稿、数据健康检查 |
 | V3.0 | 云笔记系统、账号登录、Markdown 编辑、附件上传 |
 | **V3.1.0** | **云端稳定版** — 见下方更新日志 |
+| **V3.1.2** | **HTTP API 版** — App API 切换到 Sakura Frp HTTP 隧道，Android 允许明文请求 |
+
+### V3.1.2 更新日志
+
+**API 连接调整：**
+- 生产环境 API 地址切换为 `http://api.apotatoapit.icu`
+- APP-Plus 云端请求地址同步切换为 HTTP
+- H5 生产环境变量 `VITE_API_BASE_URL` 同步切换为 HTTP
+
+**Android 打包适配：**
+- Android 打包配置增加 `usesCleartextTraffic=true`
+- HBuilderX 云打包 APK 已发布到 GitHub Releases
+
+**发布文件：**
+- Release：`v3.1.2`
+- APK：`__UNI__59DF11F__20260608113117.apk`
+- 下载地址：https://github.com/climb778/Self_discipline_Station/releases/tag/v3.1.2
 
 ### V3.1.0 更新日志
 
