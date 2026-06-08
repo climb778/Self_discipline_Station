@@ -3,7 +3,7 @@
     "appid" : "__UNI__59DF11F",
     "description" : "个人自律打卡和每日任务管理应用",
     "versionName" : "3.1.3",
-    "versionCode" : 104,
+    "versionCode" : 105,
     "vueVersion" : "3",
     "transformPx" : false,
     "app-plus" : {

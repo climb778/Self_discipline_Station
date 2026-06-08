@@ -6,8 +6,8 @@
 
 ## 当前发布
 
-- 当前版本：`v3.1.2`（HTTP API 版）
-- Android APK：[GitHub Releases / v3.1.2](https://github.com/climb778/Self_discipline_Station/releases/tag/v3.1.2)
+- 当前版本：`v3.1.3`（HTTP API 版）
+- Android APK：[GitHub Releases / v3.1.3](https://github.com/climb778/Self_discipline_Station/releases/tag/v3.1.3)
 - 线上 API：`http://api.apotatoapit.icu`
 - API 健康检查：`http://api.apotatoapit.icu/api/health`
 
@@ -130,9 +130,9 @@ mvn spring-boot:run
 | V2.0 | Android 打包适配、学习记录草稿、数据健康检查 |
 | V3.0 | 云笔记系统、账号登录、Markdown 编辑、附件上传 |
 | **V3.1.0** | **云端稳定版** — 见下方更新日志 |
-| **V3.1.2** | **HTTP API 版** — App API 切换到 Sakura Frp HTTP 隧道，Android 允许明文请求 |
+| **V3.1.3** | **HTTP API 版** — App API 切换到 Sakura Frp HTTP 隧道，Android 允许明文请求 |
 
-### V3.1.2 更新日志
+### V3.1.3 更新日志
 
 **API 连接调整：**
 - 生产环境 API 地址切换为 `http://api.apotatoapit.icu`
@@ -144,9 +144,9 @@ mvn spring-boot:run
 - HBuilderX 云打包 APK 已发布到 GitHub Releases
 
 **发布文件：**
-- Release：`v3.1.2`
-- APK：`__UNI__59DF11F__20260608113117.apk`
-- 下载地址：https://github.com/climb778/Self_discipline_Station/releases/tag/v3.1.2
+- Release：`v3.1.3`
+- APK：`__UNI__59DF11F__20260608122104.apk`
+- 下载地址：https://github.com/climb778/Self_discipline_Station/releases/tag/v3.1.3
 
 ### V3.1.0 更新日志
 
